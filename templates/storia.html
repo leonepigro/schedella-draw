@@ -8,18 +8,32 @@
 <div class="space-y-3">
 {% for s in schedelle %}
 <div class="card" id="sched-row-{{ s.id }}">
+  <!-- Header row -->
   <div class="flex flex-wrap items-start gap-3 justify-between">
     <div class="flex-1 min-w-0">
-      <div class="text-[#78716c] text-xs mb-1">{{ s.created_at[:16] }} · {{ s.excel_filename }}</div>
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-[#f59e0b] font-bold text-sm">#{{ s.id }}</span>
+        {% if s.participant_name %}
+        <span class="text-white font-medium text-sm">{{ s.participant_name }}</span>
+        {% endif %}
+        <span class="text-[#78716c] text-xs">{{ (s.created_at or '')[:16] }}</span>
+        <span class="text-[#4b5563] text-xs">· {{ s.excel_filename }}</span>
+      </div>
+      <!-- Picks summary with both teams + pronostico -->
       <div class="flex flex-wrap gap-1 mb-2">
         {% for p in s.picks %}
+        <button class="badge-pron text-left hover:bg-[#3d3010] transition-colors"
+                onclick="document.getElementById('detail-{{ s.id }}').classList.toggle('hidden')">
           {% if p.pronostico %}
-          <span class="badge-pron">{{ p.match_name.split(' - ')[0][:10] }}: {{ p.pronostico }}</span>
+            {{ p.match_name.split(' - ')[0][:8] }} <span class="text-white font-bold">{{ p.pronostico }}</span>
+          {% else %}
+            {{ p.match_name.split(' - ')[0][:12] }} <span class="text-[#78716c]">—</span>
           {% endif %}
+        </button>
         {% endfor %}
       </div>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 flex-shrink-0">
       {% if s.outcome %}
         <span class="badge-{{ s.outcome }}">{{ s.outcome }}</span>
         <span class="font-bold {% if s.profit and s.profit > 0 %}text-emerald-400{% elif s.profit and s.profit < 0 %}text-red-400{% else %}text-[#78716c]{% endif %}">
@@ -34,6 +48,28 @@
     </div>
   </div>
 
+  <!-- Expandable match detail -->
+  <div id="detail-{{ s.id }}" class="hidden mt-3 pt-3 border-t border-[#2d2410] space-y-1">
+    {% for p in s.picks %}
+    <div class="flex items-center justify-between text-sm py-1">
+      <div>
+        {% set teams = p.match_name.split(' - ') %}
+        <span class="text-white">{{ teams[0] }}</span>
+        <span class="text-[#4b5563] mx-1">vs</span>
+        <span class="text-white">{{ teams[1] if teams|length > 1 else '' }}</span>
+        {% if p.match_date %}
+        <span class="text-[#78716c] text-xs ml-2">{{ p.match_date }}</span>
+        {% endif %}
+      </div>
+      {% if p.pronostico %}
+      <span class="badge-pron ml-2">{{ p.pronostico }}</span>
+      {% else %}
+      <span class="text-[#78716c] text-xs">non estratto</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
   {% if not s.outcome %}
   <div id="result-form-{{ s.id }}" class="hidden mt-3 pt-3 border-t border-[#2d2410]">
     <form hx-post="/storia/{{ s.id }}/result"
@@ -42,7 +78,7 @@
           class="flex flex-wrap gap-3 items-end">
       <div>
         <label class="text-[#92400e] text-xs uppercase block mb-1">Esito</label>
-        <select name="outcome" class="input-gold">
+        <select name="outcome" class="input-gold w-32">
           <option value="won">✓ Vinto</option>
           <option value="lost">✗ Perso</option>
           <option value="void">— Void</option>

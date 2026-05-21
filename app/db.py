@@ -35,10 +35,11 @@ def init_db(path: str = DB_PATH) -> None:
                 params_json   TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS schedella (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id  INTEGER NOT NULL REFERENCES session(id),
-                player_num  INTEGER NOT NULL DEFAULT 1,
-                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id       INTEGER NOT NULL REFERENCES session(id),
+                player_num       INTEGER NOT NULL DEFAULT 1,
+                participant_name TEXT,
+                created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS pick (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +62,10 @@ def init_db(path: str = DB_PATH) -> None:
                 resolved_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        # Migration: add participant_name to existing databases
+        cols = {row[1] for row in con.execute("PRAGMA table_info(schedella)").fetchall()}
+        if "participant_name" not in cols:
+            con.execute("ALTER TABLE schedella ADD COLUMN participant_name TEXT")
 
 
 def insert_session(path: str, excel_filename: str, params: dict) -> int:
@@ -72,11 +77,11 @@ def insert_session(path: str, excel_filename: str, params: dict) -> int:
         return cur.lastrowid
 
 
-def insert_schedella(path: str, session_id: int, player_num: int) -> int:
+def insert_schedella(path: str, session_id: int, player_num: int, participant_name: str = None) -> int:
     with get_connection(path) as con:
         cur = con.execute(
-            "INSERT INTO schedella (session_id, player_num) VALUES (?,?)",
-            (session_id, player_num),
+            "INSERT INTO schedella (session_id, player_num, participant_name) VALUES (?,?,?)",
+            (session_id, player_num, participant_name),
         )
         return cur.lastrowid
 
@@ -136,7 +141,7 @@ def get_picks_for_schedella(path: str, schedella_id: int) -> list[dict]:
 def get_all_schedelle(path: str, limit: int = 50) -> list[dict]:
     with get_connection(path) as con:
         rows = con.execute("""
-            SELECT s.id, s.created_at, s.player_num,
+            SELECT s.id, s.created_at, s.player_num, s.participant_name,
                    se.excel_filename,
                    r.outcome, r.actual_multiplier, r.stake, r.profit
             FROM schedella s

@@ -60,6 +60,7 @@ async def nuova_submit(
     only_mandatory: Optional[str] = Form(None),
     seed: Optional[int] = Form(None),
     debug_odds: Optional[str] = Form(None),
+    participant_column: Optional[str] = Form(None),
 ):
     excel_bytes = await excel_file.read()
     params = {
@@ -77,6 +78,7 @@ async def nuova_submit(
         "only_mandatory": only_mandatory is not None,
         "seed": seed,
         "debug_odds": debug_odds is not None,
+        "participant_column": participant_column or None,
     }
 
     try:
@@ -88,7 +90,10 @@ async def nuova_submit(
 
     session_id = database.insert_session(DB_PATH, excel_file.filename, params)
     for player in session_data["players"]:
-        sched_id = database.insert_schedella(DB_PATH, session_id, player["player_num"])
+        sched_id = database.insert_schedella(
+            DB_PATH, session_id, player["player_num"],
+            participant_name=player.get("participant_name"),
+        )
         for pos, match in enumerate(player["matches"]):
             ro = match["raw_odds"]
             valid_odds = [o for o in ro if isinstance(o, float) and not (o != o) and o > 0]
@@ -122,6 +127,7 @@ async def sorteggio(request: Request, session_id: int):
         picks = database.get_picks_for_schedella(DB_PATH, sched_id) if sched_id else []
         players_with_picks.append({
             "player_num": player["player_num"],
+            "participant_name": player.get("participant_name"),
             "schedella_id": sched_id,
             "matches": player["matches"],
             "picks": picks,

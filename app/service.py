@@ -79,7 +79,11 @@ def _select_matches(df, params, player_rng):
         selected = filter_by_datetime(df, filter_day, filter_time)
         return selected, None  # no extras in filter mode
 
-    # COS-based mandatory/optional logic
+    # COS logic only when selection_mode == "cos" is explicit
+    if params.get("selection_mode") != "cos" and not params.get("cos_column"):
+        df = df.copy()
+        df["cos"] = ""
+
     mandatory = mandatory_rows(df)
     optional = non_mandatory_rows(df)
 
@@ -176,7 +180,14 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
         except OSError:
             pass
 
-    num_players = params.get("players", 1)
+    # Participant names from column take priority over numeric players count
+    participant_column = params.get("participant_column")
+    participant_names = []
+    if participant_column and participant_column in df.columns:
+        vals = df[participant_column].dropna().astype(str).str.strip()
+        participant_names = [v for v in vals.unique().tolist() if v and v.lower() not in ("nan", "")]
+
+    num_players = len(participant_names) if participant_names else params.get("players", 1)
     seed = params.get("seed")
     use_odds = params.get("use_odds", False)
     theodds_key = params.get("theodds_key")
@@ -201,8 +212,10 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
                 m["extra"] = True
                 matches_out.append(m)
 
+        pname = participant_names[p_idx] if p_idx < len(participant_names) else None
         players_out.append({
             "player_num": p_idx + 1,
+            "participant_name": pname,
             "matches": matches_out,
         })
 

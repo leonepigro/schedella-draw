@@ -26,10 +26,17 @@
   <!-- PARTITE -->
   <div class="card">
     <h2 class="text-[#f59e0b] font-semibold mb-3">⚽ Partite</h2>
-    <div class="grid grid-cols-3 gap-4">
+    <div class="mb-4">
+      <label class="text-[#92400e] text-xs uppercase block mb-1">Colonna partecipanti (nomi dal file Excel)</label>
+      <input type="text" name="participant_column" id="participant-col" class="input-gold max-w-xs"
+             placeholder="es. Partecipanti"
+             oninput="togglePlayersField(this.value)">
+      <div class="text-[#78716c] text-xs mt-1">Se compilato, crea una schedella per ogni nome univoco nella colonna. Lascia vuoto per usare il numero sotto.</div>
+    </div>
+    <div class="grid grid-cols-3 gap-4" id="players-section">
       <div>
         <label class="text-[#92400e] text-xs uppercase block mb-1">Giocatori</label>
-        <input type="number" name="players" value="1" min="1" max="10" class="input-gold">
+        <input type="number" name="players" id="players-count" value="1" min="1" max="20" class="input-gold">
       </div>
       <div>
         <label class="text-[#92400e] text-xs uppercase block mb-1">Partite/Gioc.</label>
@@ -135,6 +142,10 @@
 
 {% block scripts %}
 <script>
+  function togglePlayersField(val) {
+    const sec = document.getElementById('players-section');
+    if (sec) sec.style.opacity = val.trim() ? '0.4' : '1';
+  }
   function showSection(id) {
     ['cos','datetime'].forEach(s => {
       document.getElementById('section-'+s)?.classList.add('hidden');
