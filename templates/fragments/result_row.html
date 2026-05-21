@@ -1,0 +1,19 @@
+<div class="card" id="sched-row-{{ schedella_id }}">
+  <div class="flex flex-wrap items-start gap-3 justify-between">
+    <div class="flex-1 min-w-0">
+      <div class="flex flex-wrap gap-1 mb-1">
+        {% for p in picks %}
+          {% if p.pronostico %}
+          <span class="badge-pron">{{ p.match_name.split(' - ')[0][:10] }}: {{ p.pronostico }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="badge-{{ outcome }}">{{ outcome }}</span>
+      <span class="font-bold {% if profit > 0 %}text-emerald-400{% elif profit < 0 %}text-red-400{% else %}text-[#78716c]{% endif %}">
+        {{ "%+.2f"|format(profit) }}€
+      </span>
+    </div>
+  </div>
+</div>

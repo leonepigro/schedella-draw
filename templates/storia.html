@@ -1,4 +1,73 @@
 {% extends "base.html" %}
 {% set active = "storia" %}
 {% block title %}Storia{% endblock %}
-{% block content %}<h1 class="text-2xl font-bold text-[#f59e0b]">Storia</h1>{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-[#f59e0b] mb-6">Storia Schedelle</h1>
+
+{% if schedelle %}
+<div class="space-y-3">
+{% for s in schedelle %}
+<div class="card" id="sched-row-{{ s.id }}">
+  <div class="flex flex-wrap items-start gap-3 justify-between">
+    <div class="flex-1 min-w-0">
+      <div class="text-[#78716c] text-xs mb-1">{{ s.created_at[:16] }} · {{ s.excel_filename }}</div>
+      <div class="flex flex-wrap gap-1 mb-2">
+        {% for p in s.picks %}
+          {% if p.pronostico %}
+          <span class="badge-pron">{{ p.match_name.split(' - ')[0][:10] }}: {{ p.pronostico }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      {% if s.outcome %}
+        <span class="badge-{{ s.outcome }}">{{ s.outcome }}</span>
+        <span class="font-bold {% if s.profit and s.profit > 0 %}text-emerald-400{% elif s.profit and s.profit < 0 %}text-red-400{% else %}text-[#78716c]{% endif %}">
+          {% if s.profit is not none %}{{ "%+.2f"|format(s.profit) }}€{% endif %}
+        </span>
+      {% else %}
+        <button class="btn-ghost text-xs"
+                onclick="document.getElementById('result-form-{{ s.id }}').classList.toggle('hidden')">
+          Inserisci esito
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not s.outcome %}
+  <div id="result-form-{{ s.id }}" class="hidden mt-3 pt-3 border-t border-[#2d2410]">
+    <form hx-post="/storia/{{ s.id }}/result"
+          hx-target="#sched-row-{{ s.id }}"
+          hx-swap="outerHTML"
+          class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Esito</label>
+        <select name="outcome" class="input-gold">
+          <option value="won">✓ Vinto</option>
+          <option value="lost">✗ Perso</option>
+          <option value="void">— Void</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Moltiplicatore</label>
+        <input type="number" name="actual_multiplier" step="0.01" value="1"
+               class="input-gold w-28">
+      </div>
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Puntata (€)</label>
+        <input type="number" name="stake" step="0.50" value="5"
+               class="input-gold w-24">
+      </div>
+      <button type="submit" class="btn-gold">Salva</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="card text-center py-16 text-[#78716c]">
+  Nessuna schedella ancora. <a href="/nuova" class="text-[#f59e0b] hover:underline">Creane una!</a>
+</div>
+{% endif %}
+{% endblock %}

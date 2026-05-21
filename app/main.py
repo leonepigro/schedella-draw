@@ -215,6 +215,31 @@ async def storia(request: Request):
     })
 
 
+@app.post("/storia/{schedella_id}/result")
+async def save_result(
+    request: Request,
+    schedella_id: int,
+    outcome: str = Form(...),
+    actual_multiplier: float = Form(...),
+    stake: float = Form(1.0),
+):
+    database.insert_result(DB_PATH, schedella_id, outcome, actual_multiplier, stake)
+    picks = database.get_picks_for_schedella(DB_PATH, schedella_id)
+    profit = round(
+        (stake * actual_multiplier - stake) if outcome == "won"
+        else (-stake if outcome == "lost" else 0.0),
+        2
+    )
+    return templates.TemplateResponse(request, "fragments/result_row.html", {
+        "schedella_id": schedella_id,
+        "outcome": outcome,
+        "actual_multiplier": actual_multiplier,
+        "stake": stake,
+        "profit": profit,
+        "picks": picks,
+    })
+
+
 @app.get("/analisi", response_class=HTMLResponse)
 async def analisi(request: Request):
     roi_data = database.get_roi_over_time(DB_PATH)

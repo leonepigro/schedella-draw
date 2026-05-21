@@ -91,3 +91,21 @@ def test_roll_pick_returns_fragment(client):
                      headers={"HX-Request": "true"})
     assert r2.status_code == 200
     assert "badge-pron" in r2.text or "pronostico" in r2.text.lower()
+
+def test_save_result(client):
+    data = _excel_bytes()
+    r = client.post("/nuova", data={
+        "players": "1", "per_player": "2",
+        "selection_mode": "none", "allow_4th": "", "use_odds": "",
+    }, files={"excel_file": ("t.xlsx", data,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False)
+    session_id = int(r.headers["location"].split("/")[-1])
+    import os
+    from app.db import get_schedelle_for_session
+    db_path = os.environ.get("DB_PATH", "data/schedella.db")
+    schedelle = get_schedelle_for_session(db_path, session_id)
+    r2 = client.post(f"/storia/{schedelle[0]}/result",
+                     data={"outcome": "won", "actual_multiplier": "12.5", "stake": "5"},
+                     headers={"HX-Request": "true"})
+    assert r2.status_code == 200
