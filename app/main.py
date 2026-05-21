@@ -108,6 +108,103 @@ async def nuova_submit(
     return RedirectResponse(f"/sorteggio/{session_id}", status_code=303)
 
 
+@app.get("/sorteggio/{session_id}", response_class=HTMLResponse)
+async def sorteggio(request: Request, session_id: int):
+    session = database.get_session(DB_PATH, session_id)
+    if not session:
+        return RedirectResponse("/nuova")
+    match_data = session["params"].get("_match_data", {})
+    players = match_data.get("players", [])
+    schedelle_ids = database.get_schedelle_for_session(DB_PATH, session_id)
+    players_with_picks = []
+    for i, player in enumerate(players):
+        sched_id = schedelle_ids[i] if i < len(schedelle_ids) else None
+        picks = database.get_picks_for_schedella(DB_PATH, sched_id) if sched_id else []
+        players_with_picks.append({
+            "player_num": player["player_num"],
+            "schedella_id": sched_id,
+            "matches": player["matches"],
+            "picks": picks,
+        })
+    params = session["params"]
+    return templates.TemplateResponse(request, "sorteggio.html", {
+        "session_id": session_id,
+        "players": players_with_picks,
+        "parlay_target": params.get("parlay_target"),
+    })
+
+
+@app.post("/sorteggio/{session_id}/roll/{pick_idx}")
+async def roll_pick_route(request: Request, session_id: int, pick_idx: int,
+                          schedella_id: int = Form(...)):
+    session = database.get_session(DB_PATH, session_id)
+    match_data = session["params"].get("_match_data", {})
+    players = match_data.get("players", [])
+
+    all_schedelle = database.get_schedelle_for_session(DB_PATH, session_id)
+    player_idx = next((i for i, sid in enumerate(all_schedelle) if sid == schedella_id), 0)
+    if player_idx >= len(players):
+        return HTMLResponse("Error: player not found", status_code=400)
+
+    matches = players[player_idx]["matches"]
+    if pick_idx >= len(matches):
+        return HTMLResponse("Error: pick index out of range", status_code=400)
+
+    match = matches[pick_idx]
+    result = service.roll_pick(match)
+
+    picks = database.get_picks_for_schedella(DB_PATH, schedella_id)
+    if pick_idx < len(picks):
+        database.update_pick_pronostico(DB_PATH, picks[pick_idx]["id"], result["pronostico"])
+        database.update_pick_odds_ev(DB_PATH, picks[pick_idx]["id"],
+                                     result["raw_odds"], result["ev_score"])
+
+    return templates.TemplateResponse(request, "fragments/pick_row.html", {
+        "match": match,
+        "result": result,
+        "pick_idx": pick_idx,
+        "schedella_id": schedella_id,
+        "session_id": session_id,
+        "revealed": True,
+    })
+
+
+@app.post("/sorteggio/{session_id}/save")
+async def save_schedella(session_id: int):
+    return RedirectResponse("/storia", status_code=303)
+
+
+@app.get("/parlay/{session_id}", response_class=HTMLResponse)
+async def parlay(request: Request, session_id: int):
+    from src.schedella import calculate_parlay_combinations
+    session = database.get_session(DB_PATH, session_id)
+    params = session["params"]
+    match_data = params.get("_match_data", {})
+    players = match_data.get("players", [])
+    parlay_target = params.get("parlay_target", 10)
+    parlay_max = params.get("parlay_max")
+
+    combos_per_player = []
+    for i, player in enumerate(players):
+        combos = calculate_parlay_combinations(
+            player["matches"],
+            min_multiplier=parlay_target,
+            max_multiplier=parlay_max,
+        )
+        combos_per_player.append({
+            "player_num": player["player_num"],
+            "combos": combos[:30],
+            "matches": player["matches"],
+        })
+
+    return templates.TemplateResponse(request, "parlay.html", {
+        "session_id": session_id,
+        "combos_per_player": combos_per_player,
+        "parlay_target": parlay_target,
+        "parlay_max": parlay_max,
+    })
+
+
 @app.get("/storia", response_class=HTMLResponse)
 async def storia(request: Request):
     schedelle = database.get_all_schedelle(DB_PATH, limit=100)

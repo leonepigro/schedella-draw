@@ -57,3 +57,37 @@ def test_post_nuova_redirects_to_sorteggio(client):
         follow_redirects=False)
     assert r.status_code in (302, 303)
     assert "/sorteggio/" in r.headers["location"]
+
+def test_sorteggio_page_loads(client):
+    data = _excel_bytes()
+    r = client.post("/nuova", data={
+        "players": "1", "per_player": "2",
+        "allow_4th": "", "use_odds": "",
+        "selection_mode": "none",
+    }, files={"excel_file": ("t.xlsx", data,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False)
+    session_id = r.headers["location"].split("/")[-1]
+    r2 = client.get(f"/sorteggio/{session_id}")
+    assert r2.status_code == 200
+    assert "Lancia" in r2.text
+
+def test_roll_pick_returns_fragment(client):
+    data = _excel_bytes()
+    r = client.post("/nuova", data={
+        "players": "1", "per_player": "2",
+        "selection_mode": "none", "allow_4th": "", "use_odds": "",
+    }, files={"excel_file": ("t.xlsx", data,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False)
+    session_id = r.headers["location"].split("/")[-1]
+    # Get the schedella id
+    from app.db import get_schedelle_for_session
+    import os
+    db_path = os.environ.get("DB_PATH", "data/schedella.db")
+    schedella_ids = get_schedelle_for_session(db_path, int(session_id))
+    r2 = client.post(f"/sorteggio/{session_id}/roll/0",
+                     data={"schedella_id": str(schedella_ids[0])},
+                     headers={"HX-Request": "true"})
+    assert r2.status_code == 200
+    assert "badge-pron" in r2.text or "pronostico" in r2.text.lower()

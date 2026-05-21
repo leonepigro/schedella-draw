@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% set active = "sorteggio" %}
+{% block title %}Parlay{% endblock %}
+{% block content %}
+<div class="flex items-center gap-4 mb-6">
+  <a href="/sorteggio/{{ session_id }}" class="text-[#92400e] hover:text-[#f59e0b]">&larr; Sorteggio</a>
+  <h1 class="text-2xl font-bold text-[#f59e0b]">&#x1F3B0; Combinazioni Parlay</h1>
+</div>
+
+{% for pp in combos_per_player %}
+<div class="mb-8">
+  {% if combos_per_player|length > 1 %}
+  <h2 class="text-[#92400e] text-sm uppercase mb-3">Giocatore {{ pp.player_num }}</h2>
+  {% endif %}
+
+  <div class="text-[#78716c] text-sm mb-4">
+    Range: <span class="text-[#f59e0b]">{{ parlay_target }}x</span>
+    {% if parlay_max %} &ndash; <span class="text-[#f59e0b]">{{ parlay_max }}x</span>{% endif %}
+    &middot; {{ pp.combos|length }} combinazioni
+  </div>
+
+  {% if pp.combos %}
+  <div class="card overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="text-[#92400e] text-xs uppercase border-b border-[#2d2410]">
+        <th class="py-2 text-right w-8">#</th>
+        <th class="py-2 text-right">Moltipl.</th>
+        <th class="py-2 text-right">EV</th>
+        <th class="py-2 text-left pl-4">Combinazione</th>
+      </tr></thead>
+      <tbody>
+      {% for mult, ev, prons in pp.combos %}
+      <tr class="border-b border-[#2d2410] hover:bg-[#12100a]">
+        <td class="py-2 text-right text-[#78716c]">{{ loop.index }}</td>
+        <td class="py-2 text-right font-bold text-[#fde68a]">{{ "%.2f"|format(mult) }}x</td>
+        <td class="py-2 text-right text-[#92400e]">{{ "%.3f"|format(ev) }}</td>
+        <td class="py-2 pl-4">
+          {% set match_names = pp.matches | map(attribute='match_name') | list %}
+          {% for i in range(prons|length) %}
+          <span class="badge-pron mr-1">{{ match_names[i].split(' - ')[0][:8] }}:{{ prons[i] }}</span>
+          {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card text-center py-8 text-[#78716c]">Nessuna combinazione nel range specificato.</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}
