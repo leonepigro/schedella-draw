@@ -54,11 +54,13 @@ async def configura_form(request: Request, session_id: int):
     data = database.get_session_bytes(DB_PATH, session_id)
     if not data or not data.get("excel_bytes"):
         return RedirectResponse("/nuova")
-    columns = service.get_excel_columns(data["excel_bytes"])
+    preview = service.get_excel_preview(data["excel_bytes"])
     return templates.TemplateResponse(request, "configura.html", {
         "session_id": session_id,
         "excel_filename": data["excel_filename"],
-        "columns": columns,
+        "columns": preview["dropdown_columns"],
+        "preview_cols": preview["all_columns"],
+        "preview_rows": preview["rows"],
     })
 
 
@@ -106,11 +108,13 @@ async def configura_submit(
     try:
         session_data = service.prepare_session(excel_bytes, excel_filename, params)
     except Exception as e:
-        columns = service.get_excel_columns(excel_bytes)
+        preview = service.get_excel_preview(excel_bytes)
         return templates.TemplateResponse(request, "configura.html", {
             "session_id": session_id,
             "excel_filename": excel_filename,
-            "columns": columns,
+            "columns": preview["dropdown_columns"],
+            "preview_cols": preview["all_columns"],
+            "preview_rows": preview["rows"],
             "error": str(e),
         }, status_code=400)
 

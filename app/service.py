@@ -30,13 +30,20 @@ from src.schedella import (
 )
 
 
-def get_excel_columns(excel_bytes: bytes) -> list[str]:
+def get_excel_preview(excel_bytes: bytes, max_rows: int = 10) -> dict:
     try:
-        df = pd.read_excel(io.BytesIO(excel_bytes), engine='openpyxl', header=1, nrows=5)
-        cols = [str(c).strip() for c in df.columns.tolist()]
-        return [c for c in cols if c and not c.startswith('Unnamed')]
+        df = pd.read_excel(io.BytesIO(excel_bytes), engine='openpyxl', header=1, nrows=max_rows)
+        df.columns = [str(c).strip() for c in df.columns]
+        df = df.dropna(how='all')
+        all_cols = list(df.columns)
+        dropdown_cols = [c for c in all_cols if c and not c.startswith('Unnamed')]
+        rows = [
+            ['' if str(v) in ('nan', 'NaT', 'None', '<NA>') else str(v) for v in row]
+            for _, row in df.iterrows()
+        ]
+        return {"all_columns": all_cols, "dropdown_columns": dropdown_cols, "rows": rows}
     except Exception:
-        return []
+        return {"all_columns": [], "dropdown_columns": [], "rows": []}
 
 
 def _row_to_match_dict(row, probs, raw_odds):

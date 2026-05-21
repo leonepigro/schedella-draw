@@ -7,13 +7,45 @@
   <h1 class="text-2xl font-bold text-[#f59e0b]">Configura Schedella</h1>
 </div>
 
-<!-- File info -->
-<div class="card mb-4 flex items-center gap-3">
-  <span class="text-2xl">&#x1F4C4;</span>
-  <div>
-    <div class="text-white font-medium text-sm">{{ excel_filename }}</div>
-    <div class="text-[#78716c] text-xs">{{ columns|length }} colonne rilevate</div>
+<!-- File info + preview table -->
+<div class="card mb-4">
+  <div class="flex items-center gap-3 mb-3">
+    <span class="text-2xl">&#x1F4C4;</span>
+    <div>
+      <div class="text-white font-medium text-sm">{{ excel_filename }}</div>
+      <div class="text-[#78716c] text-xs">{{ preview_cols|length }} colonne · {{ preview_rows|length }} righe (anteprima)</div>
+    </div>
   </div>
+  {% if preview_cols %}
+  <div class="overflow-x-auto rounded-lg border border-[#2d2410]">
+    <table class="text-xs w-full min-w-max">
+      <thead>
+        <tr class="bg-[#0f0d08]">
+          {% for col in preview_cols %}
+          <th class="px-3 py-2 text-left font-semibold whitespace-nowrap
+                     {% if col.startswith('Unnamed') %}text-[#4b5563]{% else %}text-[#f59e0b]{% endif %}
+                     border-r border-[#2d2410] last:border-r-0">
+            {{ col if not col.startswith('Unnamed') else '—' }}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in preview_rows %}
+        <tr class="border-t border-[#2d2410] hover:bg-[#1f1a10]">
+          {% for cell in row %}
+          <td class="px-3 py-1.5 whitespace-nowrap text-[#e5e7eb] border-r border-[#2d2410] last:border-r-0 max-w-[160px] truncate">
+            {{ cell }}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-[#78716c] text-sm text-center py-4">Nessun dato leggibile</div>
+  {% endif %}
 </div>
 
 {% if error %}
