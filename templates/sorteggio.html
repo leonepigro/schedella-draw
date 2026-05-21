@@ -5,12 +5,12 @@
 <div class="flex items-center justify-between mb-6">
   <h1 class="text-2xl font-bold text-[#f59e0b]">&#x1F3B2; Sorteggio</h1>
   {% if parlay_target %}
-  <a href="/parlay/{{ session_id }}" class="btn-ghost text-sm">&#x1F3B0; Vedi Parlay {{ parlay_target }}x</a>
+  <a href="/parlay/{{ session_id }}" class="btn-ghost text-sm">&#x1F3B0; Parlay {{ parlay_target }}x</a>
   {% endif %}
 </div>
 
 {% for player in players %}
-<div class="mb-8">
+<div class="mb-10">
   {% if players|length > 1 %}
   <h2 class="text-[#f59e0b] font-bold text-lg mb-3">
     {% if player.participant_name %}{{ player.participant_name }}{% else %}Giocatore {{ player.player_num }}{% endif %}
@@ -19,30 +19,69 @@
 
   <div class="flex flex-col md:flex-row gap-6">
 
-    <!-- Match list -->
+    <!-- Pick list: shown immediately with all match info -->
     <div class="md:w-2/5 space-y-2" id="picks-{{ player.schedella_id }}">
       {% for match in player.matches %}
       {% set pick = player.picks[loop.index0] if loop.index0 < player.picks|length else None %}
+      {% set already = pick and pick.pronostico %}
+
       <div id="pick-row-{{ player.schedella_id }}-{{ loop.index0 }}"
-           class="card flex items-center justify-between gap-3">
-        <div class="flex-1 min-w-0">
-          <div class="text-xs text-[#78716c]">{{ match.match_date }}</div>
-          <div class="text-sm font-medium truncate">{{ match.match_name }}</div>
+           class="card flex flex-col gap-2 {% if already %}border-[#f59e0b]/40{% else %}border-[#2d2410]{% endif %}">
+
+        <!-- Match info + pronostico/button -->
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="text-xs text-[#78716c]">{{ match.match_date }}</div>
+            <div class="text-sm font-medium truncate">{{ match.match_name }}</div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            {% if already %}
+              <span class="badge-pron text-base font-bold px-3 py-1">{{ pick.pronostico|upper }}</span>
+            {% else %}
+              <span class="badge-pron text-base font-bold px-3 py-1 opacity-25">?</span>
+              <button class="btn-gold text-xs px-3 py-1"
+                      hx-post="/sorteggio/{{ session_id }}/roll/{{ loop.index0 }}"
+                      hx-target="#pick-row-{{ player.schedella_id }}-{{ loop.index0 }}"
+                      hx-swap="outerHTML"
+                      hx-include="#hidden-sched-{{ player.schedella_id }}"
+                      hx-on::before-request="startRollForSched('{{ player.schedella_id }}')"
+                      hx-indicator="#spin-{{ player.schedella_id }}-{{ loop.index0 }}">
+                Lancia
+              </button>
+              <span id="spin-{{ player.schedella_id }}-{{ loop.index0 }}"
+                    class="htmx-indicator text-[#f59e0b] text-xs">&#x23F3;</span>
+            {% endif %}
+          </div>
         </div>
-        {% if pick and pick.pronostico %}
-          <span class="badge-pron text-base font-bold px-3 py-1">{{ pick.pronostico|upper }}</span>
-        {% else %}
-          <button class="btn-gold text-xs px-3 py-1"
-                  hx-post="/sorteggio/{{ session_id }}/roll/{{ loop.index0 }}"
-                  hx-target="#pick-row-{{ player.schedella_id }}-{{ loop.index0 }}"
-                  hx-swap="outerHTML"
-                  hx-include="#hidden-sched-{{ player.schedella_id }}"
-                  hx-on::before-request="rollDice()"
-                  hx-indicator="#spinner-{{ player.schedella_id }}-{{ loop.index0 }}">
-            Lancia
-          </button>
-          <span id="spinner-{{ player.schedella_id }}-{{ loop.index0 }}"
-                class="htmx-indicator text-[#f59e0b] text-xs">&#x23F3;</span>
+
+        <!-- Stats row: always visible -->
+        {% if match.best_prob or match.best_odds or match.best_ev %}
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs border-t border-[#2d2410] pt-2">
+          {% if match.best_prob %}
+          <span class="text-[#78716c]">Best Prob:
+            <span class="text-[#f59e0b] font-bold">{{ match.best_prob|upper }}</span>
+            {% if match.best_prob_value %}
+            <span class="text-[#4b5563]">({{ "%.0f"|format(match.best_prob_value * 100) }}%)</span>
+            {% endif %}
+          </span>
+          {% endif %}
+          {% if match.best_odds %}
+          <span class="text-[#78716c]">Best Odds:
+            <span class="text-[#f59e0b] font-bold">{{ match.best_odds|upper }}</span>
+            {% if match.best_odds_value %}
+            <span class="text-[#4b5563]">({{ "%.2f"|format(match.best_odds_value) }}x)</span>
+            {% endif %}
+          </span>
+          {% endif %}
+          {% if match.best_ev %}
+          <span class="text-[#78716c]">Best EV:
+            <span class="text-emerald-400 font-bold">{{ match.best_ev|upper }}</span>
+            {% if match.best_ev_value %}
+            <span class="text-[#4b5563]">({{ "%.3f"|format(match.best_ev_value) }})</span>
+            {% endif %}
+          </span>
+          {% endif %}
+        </div>
         {% endif %}
       </div>
       {% endfor %}
@@ -64,12 +103,12 @@
     <div class="md:w-3/5 flex flex-col items-center justify-center">
       <canvas id="dice-canvas-{{ player.schedella_id }}"
               class="w-full max-w-xs aspect-square rounded-xl"
-              style="background: #0f0d08;">
+              style="background: #0a0804;">
       </canvas>
       <div id="dice-result-{{ player.schedella_id }}"
            class="mt-4 text-3xl font-black text-[#fde68a] tracking-widest min-h-10"></div>
-      <div class="text-[#78716c] text-xs mt-2">Clicca "Lancia" per estrarre il pronostico</div>
     </div>
+
   </div>
 </div>
 {% endfor %}
@@ -80,39 +119,40 @@
 <script src="/static/dice.js"></script>
 <script>
   const diceMap = {};
+
   {% for player in players %}
   (function() {
     const canvas = document.getElementById('dice-canvas-{{ player.schedella_id }}');
     if (canvas && typeof SchedellaDice !== 'undefined') {
-      const labels = {% if player.matches|length > 0 %}{{ player.matches[0].available_pronostici | map(attribute='pron') | list | tojson }}{% else %}[]{% endif %};
+      const labels = {% if player.matches|length > 0 %}
+        {{ player.matches[0].available_pronostici | map(attribute='pron') | list | tojson }}
+      {% else %}[]{% endif %};
       diceMap['{{ player.schedella_id }}'] = new SchedellaDice(canvas, labels);
     }
   })();
   {% endfor %}
 
-  function rollDice() {
-    Object.values(diceMap).forEach(d => d.startRoll());
+  function startRollForSched(schedId) {
+    if (diceMap[schedId]) diceMap[schedId].startRoll();
   }
 
   document.body.addEventListener('htmx:afterSwap', function(evt) {
     const target = evt.detail.target;
     const badge = target.querySelector('.badge-pron');
-    if (badge) {
-      const pron = badge.textContent.trim().toLowerCase();
-      const rowId = target.id;
-      const parts = rowId.split('-');
-      const schedId = parts[2];
-      if (diceMap[schedId]) {
-        diceMap[schedId].settleOn(pron, () => {
-          document.getElementById('dice-result-' + schedId).textContent = pron.toUpperCase();
-          const picks = document.querySelectorAll('#picks-' + schedId + ' .badge-pron');
-          const total = document.querySelectorAll('#picks-' + schedId + ' [id^=pick-row]').length;
-          if (picks.length >= total) {
-            document.getElementById('save-btn-' + schedId)?.classList.remove('hidden');
-          }
-        });
+    if (!badge) return;
+    const pron = badge.textContent.trim().toLowerCase();
+    const parts = target.id.split('-');   // pick-row-{schedId}-{idx}
+    const schedId = parts[2];
+    if (!diceMap[schedId]) return;
+    diceMap[schedId].settleOn(pron, () => {
+      document.getElementById('dice-result-' + schedId).textContent = pron.toUpperCase();
+      // Check if all picks revealed → show save button
+      const picks = document.querySelectorAll('#picks-' + schedId + ' .badge-pron:not(.opacity-25)');
+      const total = document.querySelectorAll('#picks-' + schedId + ' [id^="pick-row"]').length;
+      if (picks.length >= total) {
+        document.getElementById('save-btn-' + schedId)?.classList.remove('hidden');
       }
-    }
+    });
   });
 </script>
 {% endblock %}
