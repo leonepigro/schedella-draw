@@ -1,4 +1,171 @@
 {% extends "base.html" %}
 {% set active = "nuova" %}
 {% block title %}Nuova Schedella{% endblock %}
-{% block content %}<h1 class="text-2xl font-bold text-[#f59e0b]">Nuova Schedella</h1>{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-[#f59e0b] mb-6">Nuova Schedella</h1>
+
+{% if error %}
+<div class="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-4 mb-6">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/nuova" enctype="multipart/form-data" class="space-y-4">
+
+  <!-- FILE -->
+  <div class="card">
+    <h2 class="text-[#f59e0b] font-semibold mb-3">📁 File Excel</h2>
+    <label class="block border-2 border-dashed border-[#2d2410] rounded-lg p-8 text-center cursor-pointer hover:border-[#f59e0b] transition-colors"
+           id="drop-zone">
+      <input type="file" name="excel_file" accept=".xlsx,.xls" required class="hidden" id="file-input"
+             onchange="document.getElementById('file-name').textContent = this.files[0]?.name || 'Nessun file'">
+      <div class="text-3xl mb-2">📂</div>
+      <div class="text-[#92400e]">Trascina il file Excel qui o clicca per selezionarlo</div>
+      <div id="file-name" class="text-[#f59e0b] mt-2 text-sm font-medium"></div>
+    </label>
+  </div>
+
+  <!-- PARTITE -->
+  <div class="card">
+    <h2 class="text-[#f59e0b] font-semibold mb-3">⚽ Partite</h2>
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Giocatori</label>
+        <input type="number" name="players" value="1" min="1" max="10" class="input-gold">
+      </div>
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Partite/Gioc.</label>
+        <input type="number" name="per_player" value="3" min="1" max="10" class="input-gold">
+      </div>
+      <div class="flex items-end pb-2">
+        <label class="toggle-label">
+          <input type="checkbox" name="allow_4th" class="toggle" id="allow4th">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="text-sm text-[#92400e]">4a opzionale</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELEZIONE -->
+  <div class="card">
+    <h2 class="text-[#f59e0b] font-semibold mb-3">🎯 Selezione partite</h2>
+    <div class="flex gap-4 mb-4">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="selection_mode" value="none" checked class="accent-[#f59e0b]"
+               onchange="showSection(null)"> <span class="text-sm">Nessun filtro</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="selection_mode" value="cos" class="accent-[#f59e0b]"
+               onchange="showSection('cos')"> <span class="text-sm">Colonna COS</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="selection_mode" value="datetime" class="accent-[#f59e0b]"
+               onchange="showSection('datetime')"> <span class="text-sm">Giorno + Ora</span>
+      </label>
+    </div>
+    <div id="section-cos" class="hidden">
+      <label class="text-[#92400e] text-xs uppercase block mb-1">Nome colonna COS</label>
+      <input type="text" name="cos_column" value="Cos" class="input-gold max-w-xs">
+    </div>
+    <div id="section-datetime" class="hidden">
+      <div class="grid grid-cols-2 gap-4 max-w-sm">
+        <div>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Giorno</label>
+          <input type="text" name="filter_day" placeholder="es. domenica" class="input-gold">
+        </div>
+        <div>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Ora</label>
+          <input type="text" name="filter_time" placeholder="es. 20:45" class="input-gold">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUOTE + PARLAY -->
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card">
+      <h2 class="text-[#f59e0b] font-semibold mb-3">📊 Quote</h2>
+      <label class="text-[#92400e] text-xs uppercase block mb-1">TheOddsAPI Key</label>
+      <input type="text" name="theodds_key" id="theodds-key" class="input-gold mb-3"
+             placeholder="8be3399300ddf79d..." autocomplete="off">
+      <label class="toggle-label">
+        <input type="checkbox" name="use_odds" class="toggle" id="use-odds">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="text-sm text-[#92400e]">Usa quote API</span>
+      </label>
+    </div>
+    <div class="card">
+      <h2 class="text-[#f59e0b] font-semibold mb-3">🎰 Parlay</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Target min</label>
+          <input type="number" name="parlay_target" step="0.5" class="input-gold" placeholder="es. 10">
+        </div>
+        <div>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Max</label>
+          <input type="number" name="parlay_max" step="0.5" class="input-gold" placeholder="es. 30">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AVANZATE -->
+  <details class="card">
+    <summary class="text-[#92400e] cursor-pointer select-none text-sm font-medium">⚙️ Avanzate</summary>
+    <div class="mt-4 space-y-3">
+      <label class="toggle-label">
+        <input type="checkbox" name="only_mandatory" class="toggle">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="text-sm text-[#92400e]">Solo partite obbligatorie</span>
+      </label>
+      <div class="max-w-xs">
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Seed (riproducibilità)</label>
+        <input type="number" name="seed" class="input-gold" placeholder="opzionale">
+      </div>
+      <label class="toggle-label">
+        <input type="checkbox" name="debug_odds" class="toggle">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="text-sm text-[#92400e]">Debug odds</span>
+      </label>
+    </div>
+  </details>
+
+  <button type="submit" class="btn-gold w-full py-3 text-base">▶ Avvia Sorteggio</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function showSection(id) {
+    ['cos','datetime'].forEach(s => {
+      document.getElementById('section-'+s)?.classList.add('hidden');
+    });
+    if (id) document.getElementById('section-'+id)?.classList.remove('hidden');
+  }
+  // Persist TheOdds key in localStorage
+  const keyInput = document.getElementById('theodds-key');
+  const useOdds  = document.getElementById('use-odds');
+  if (keyInput) {
+    keyInput.value = localStorage.getItem('theodds_key') || '';
+    if (keyInput.value) useOdds.checked = true;
+    keyInput.addEventListener('change', () => {
+      localStorage.setItem('theodds_key', keyInput.value);
+      if (keyInput.value) useOdds.checked = true;
+    });
+  }
+  // Drag-and-drop
+  const zone = document.getElementById('drop-zone');
+  const inp  = document.getElementById('file-input');
+  if (zone) {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('border-[#f59e0b]'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('border-[#f59e0b]'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('border-[#f59e0b]');
+      if (e.dataTransfer.files[0]) {
+        inp.files = e.dataTransfer.files;
+        document.getElementById('file-name').textContent = e.dataTransfer.files[0].name;
+      }
+    });
+  }
+</script>
+{% endblock %}
