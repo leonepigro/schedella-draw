@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% set active = "dashboard" %}
+{% block title %}Dashboard — Schedella{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-[#f59e0b] mb-6">Dashboard</h1>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  <div class="card"><div class="text-[#92400e] text-xs mb-1">SCHEDELLE</div><div class="text-2xl font-bold">{{ stats.total }}</div></div>
+  <div class="card"><div class="text-[#92400e] text-xs mb-1">WIN RATE</div><div class="text-2xl font-bold text-emerald-400">{{ stats.win_rate }}%</div></div>
+  <div class="card"><div class="text-[#92400e] text-xs mb-1">ROI</div><div class="text-2xl font-bold {% if stats.roi >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">{{ stats.roi }}%</div></div>
+  <div class="card"><div class="text-[#92400e] text-xs mb-1">PROFIT</div><div class="text-2xl font-bold {% if stats.total_profit >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">{{ stats.total_profit }}€</div></div>
+</div>
+<div class="flex justify-between items-center mb-4">
+  <h2 class="text-lg font-semibold text-[#f59e0b]">Ultime schedelle</h2>
+  <a href="/nuova" class="btn-gold text-sm">+ Nuova Schedella</a>
+</div>
+{% if schedelle %}
+<div class="card overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead><tr class="text-[#92400e] text-xs uppercase border-b border-[#2d2410]">
+      <th class="py-2 text-left">Data</th><th class="py-2 text-left">File</th>
+      <th class="py-2 text-left">Esito</th><th class="py-2 text-right">Profit</th>
+    </tr></thead>
+    <tbody>{% for s in schedelle %}
+    <tr class="border-b border-[#2d2410] hover:bg-[#12100a]">
+      <td class="py-2 text-[#78716c]">{{ s.created_at[:10] }}</td>
+      <td class="py-2">{{ s.excel_filename }}</td>
+      <td class="py-2">{% if s.outcome %}<span class="badge-{{ s.outcome }}">{{ s.outcome }}</span>{% else %}<span class="badge-void">—</span>{% endif %}</td>
+      <td class="py-2 text-right {% if s.profit and s.profit > 0 %}text-emerald-400{% elif s.profit and s.profit < 0 %}text-red-400{% else %}text-[#78716c]{% endif %}">
+        {% if s.profit is not none %}{{ "%.2f"|format(s.profit) }}€{% else %}—{% endif %}
+      </td>
+    </tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card text-center py-12 text-[#78716c]">Nessuna schedella ancora. <a href="/nuova" class="text-[#f59e0b] hover:underline">Creane una!</a></div>
+{% endif %}
+{% endblock %}

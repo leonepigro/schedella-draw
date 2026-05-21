@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Schedella Draw{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg:      '#12100a',
+            surface: '#1a160d',
+            border:  '#2d2410',
+            accent:  '#f59e0b',
+            gold:    '#fde68a',
+            muted:   '#92400e',
+            dim:     '#78716c',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #12100a; color: #fde68a; }
+    .nav-link { @apply text-[#92400e] hover:text-[#f59e0b] transition-colors px-3 py-2 text-sm font-medium; }
+    .nav-link.active { @apply text-[#f59e0b] border-b-2 border-[#f59e0b]; }
+    .card { @apply bg-[#1a160d] border border-[#2d2410] rounded-xl p-4; }
+    .btn-gold { @apply bg-[#f59e0b] text-[#12100a] font-bold px-4 py-2 rounded-lg hover:bg-[#fde68a] transition-colors; }
+    .btn-ghost { @apply border border-[#2d2410] text-[#92400e] px-4 py-2 rounded-lg hover:border-[#f59e0b] hover:text-[#f59e0b] transition-colors; }
+    .badge-won  { @apply bg-emerald-900 text-emerald-300 text-xs px-2 py-0.5 rounded-full; }
+    .badge-lost { @apply bg-red-900 text-red-300 text-xs px-2 py-0.5 rounded-full; }
+    .badge-void { @apply bg-[#2d2410] text-[#78716c] text-xs px-2 py-0.5 rounded-full; }
+    .badge-pron { @apply bg-[#2d2410] text-[#f59e0b] text-xs px-2 py-1 rounded; }
+    .input-gold { @apply bg-[#0f0d08] border border-[#2d2410] text-[#fde68a] rounded-lg px-3 py-2 w-full focus:outline-none focus:border-[#f59e0b] placeholder-[#78716c]; }
+    .toggle-label { @apply flex items-center gap-3 cursor-pointer; }
+    input[type=checkbox].toggle { @apply sr-only; }
+    .toggle-track { @apply w-10 h-5 bg-[#2d2410] rounded-full relative transition-colors; }
+    input[type=checkbox].toggle:checked + .toggle-track { @apply bg-[#f59e0b]; }
+    .toggle-thumb { @apply absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform; }
+    input[type=checkbox].toggle:checked + .toggle-track .toggle-thumb { @apply translate-x-5; }
+    .htmx-indicator { opacity: 0; }
+    .htmx-request .htmx-indicator { opacity: 1; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Desktop top nav -->
+  <nav class="hidden md:flex items-center gap-1 px-6 h-14 bg-[#1a160d] border-b border-[#2d2410]">
+    <span class="text-[#f59e0b] font-bold text-lg mr-6">&#x26BD; Schedella</span>
+    <a href="/"        class="nav-link {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+    <a href="/nuova"   class="nav-link {% if active=='nuova'     %}active{% endif %}">Nuova</a>
+    <a href="/storia"  class="nav-link {% if active=='storia'    %}active{% endif %}">Storia</a>
+    <a href="/analisi" class="nav-link {% if active=='analisi'   %}active{% endif %}">Analisi</a>
+  </nav>
+
+  <!-- Mobile top bar -->
+  <div class="md:hidden flex items-center px-4 h-12 bg-[#1a160d] border-b border-[#2d2410]">
+    <span class="text-[#f59e0b] font-bold">&#x26BD; Schedella</span>
+  </div>
+
+  <main class="px-4 md:px-6 py-6 pb-24 md:pb-6 max-w-5xl mx-auto">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Mobile bottom nav -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#1a160d] border-t border-[#2d2410] flex justify-around py-2">
+    <a href="/"        class="flex flex-col items-center text-xs {% if active=='dashboard' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+      <span class="text-xl">&#x1F4CA;</span><span>Home</span>
+    </a>
+    <a href="/nuova"   class="flex flex-col items-center text-xs {% if active=='nuova' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+      <span class="text-xl">&#x1F3B2;</span><span>Nuova</span>
+    </a>
+    <a href="/storia"  class="flex flex-col items-center text-xs {% if active=='storia' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+      <span class="text-xl">&#x1F4CB;</span><span>Storia</span>
+    </a>
+    <a href="/analisi" class="flex flex-col items-center text-xs {% if active=='analisi' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+      <span class="text-xl">&#x1F4C8;</span><span>Analisi</span>
+    </a>
+  </nav>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
