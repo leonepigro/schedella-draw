@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from app import db as database
 from app import service
 
-DB_PATH = os.environ.get("DB_PATH", "data/schedella.db")
+DB_PATH = os.environ.get("DB_PATH", "/data/schedella.db" if os.path.isdir("/data") else "data/schedella.db")
 
 
 @asynccontextmanager
