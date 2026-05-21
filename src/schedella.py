@@ -227,7 +227,11 @@ def read_schedule(path, cos_column=None):
 
     if date_col:
         raw_date = df[date_col]
-        if np.issubdtype(raw_date.dtype, np.datetime64):
+        try:
+            _is_datetime = np.issubdtype(raw_date.dtype, np.datetime64)
+        except (TypeError, AttributeError):
+            _is_datetime = False
+        if _is_datetime:
             df['date'] = raw_date
         elif date_col in DATE_COLUMNS:
             parsed = pd.to_datetime(raw_date, errors='coerce')
