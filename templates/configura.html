@@ -54,88 +54,98 @@
 
 <form method="post" action="/configura/{{ session_id }}" class="space-y-4">
 
-  <!-- COLONNE -->
+  <!-- GIOCATORI -->
   <div class="card">
-    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F4CB; Colonne Excel</h2>
-    <div class="grid md:grid-cols-2 gap-4">
-      <div>
-        <label class="text-[#92400e] text-xs uppercase block mb-1">Colonna Partecipanti</label>
-        {% if columns %}
-        <select name="participant_column" class="input-gold" id="participant-col"
-                onchange="togglePlayersField(this.value)">
-          <option value="">— nessuna (usa numero giocatori) —</option>
-          {% for col in columns %}
-          <option value="{{ col }}">{{ col }}</option>
-          {% endfor %}
-        </select>
-        {% else %}
-        <input type="text" name="participant_column" id="participant-col" class="input-gold"
-               placeholder="es. Partecipanti"
-               oninput="togglePlayersField(this.value)">
-        {% endif %}
-        <div class="text-[#78716c] text-xs mt-1">Un nome per riga → una schedella per nome</div>
-      </div>
-      <div>
-        <label class="text-[#92400e] text-xs uppercase block mb-1">Colonna COS</label>
-        {% if columns %}
-        <select name="cos_column_hint" class="input-gold" id="cos-col-hint">
-          <option value="">— auto-rilevata —</option>
-          {% for col in columns %}
-          <option value="{{ col }}">{{ col }}</option>
-          {% endfor %}
-        </select>
-        {% else %}
-        <input type="text" name="cos_column_hint" class="input-gold" placeholder="es. Cos">
-        {% endif %}
-        <div class="text-[#78716c] text-xs mt-1">Solo in modalità "Colonna COS" sotto</div>
+    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x26BD; Giocatori</h2>
+
+    <!-- Participant column selector -->
+    <div class="mb-4">
+      <label class="text-[#92400e] text-xs uppercase block mb-1">
+        Chi gioca?
+        <span class="normal-case text-[#4b5563] ml-1">— colonna che contiene i nomi (opzionale)</span>
+      </label>
+      {% if columns %}
+      <select name="participant_column" id="participant-col" class="input-gold max-w-xs"
+              onchange="togglePlayersField(this.value)">
+        <option value="">— usa il numero di giocatori sotto —</option>
+        {% for col in columns %}
+        <option value="{{ col }}">{{ col }}</option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <input type="text" name="participant_column" id="participant-col" class="input-gold max-w-xs"
+             placeholder="Nome colonna (es. Partecipanti)"
+             oninput="togglePlayersField(this.value)">
+      {% endif %}
+      <div class="text-[#78716c] text-xs mt-1">
+        Se selezioni una colonna: ogni nome unico nel file → una schedella separata
       </div>
     </div>
-  </div>
 
-  <!-- PARTITE -->
-  <div class="card">
-    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x26BD; Partite</h2>
+    <!-- Player count (dimmed when column is selected) -->
     <div class="grid grid-cols-3 gap-4" id="players-section">
       <div>
-        <label class="text-[#92400e] text-xs uppercase block mb-1">Giocatori</label>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">N° Giocatori</label>
         <input type="number" name="players" id="players-count" value="1" min="1" max="20" class="input-gold">
       </div>
       <div>
-        <label class="text-[#92400e] text-xs uppercase block mb-1">Partite/Gioc.</label>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Partite/Giocatore</label>
         <input type="number" name="per_player" value="3" min="1" max="10" class="input-gold">
       </div>
       <div class="flex items-end pb-2">
         <label class="toggle-label">
           <input type="checkbox" name="allow_4th" class="toggle" id="allow4th">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          <span class="text-sm text-[#92400e]">4a opzionale</span>
+          <span class="text-sm text-[#92400e]">4a partita opzionale</span>
         </label>
       </div>
     </div>
   </div>
 
-  <!-- SELEZIONE -->
+  <!-- SELEZIONE PARTITE -->
   <div class="card">
-    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F3AF; Selezione partite</h2>
-    <div class="flex gap-4 mb-4">
+    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F3AF; Quali partite sorteggiare?</h2>
+    <div class="flex flex-wrap gap-4 mb-4">
       <label class="flex items-center gap-2 cursor-pointer">
         <input type="radio" name="selection_mode" value="none" checked class="accent-[#f59e0b]"
-               onchange="showSection(null)"> <span class="text-sm">Nessun filtro</span>
+               onchange="showSection(null)">
+        <span class="text-sm">Tutte le partite</span>
       </label>
       <label class="flex items-center gap-2 cursor-pointer">
         <input type="radio" name="selection_mode" value="cos" class="accent-[#f59e0b]"
-               onchange="showSection('cos')"> <span class="text-sm">Colonna COS</span>
+               onchange="showSection('cos')">
+        <span class="text-sm">Filtro obbligatorie/facoltative</span>
       </label>
       <label class="flex items-center gap-2 cursor-pointer">
         <input type="radio" name="selection_mode" value="datetime" class="accent-[#f59e0b]"
-               onchange="showSection('datetime')"> <span class="text-sm">Giorno + Ora</span>
+               onchange="showSection('datetime')">
+        <span class="text-sm">Filtra per giorno/ora</span>
       </label>
     </div>
-    <div id="section-cos" class="hidden">
-      <label class="text-[#92400e] text-xs uppercase block mb-1">Nome colonna COS</label>
-      <input type="text" name="cos_column" id="cos-column-input" value="Cos" class="input-gold max-w-xs">
+
+    <!-- COS section -->
+    <div id="section-cos" class="hidden bg-[#0f0d08] rounded-lg p-3">
+      <p class="text-[#78716c] text-xs mb-3">
+        Seleziona la colonna che indica se una partita è <strong class="text-[#f59e0b]">obbligatoria</strong> (valore = X) o facoltativa (vuoto).
+        Le partite obbligatorie vengono sempre incluse.
+      </p>
+      <label class="text-[#92400e] text-xs uppercase block mb-1">Colonna nel file Excel</label>
+      {% if columns %}
+      <select name="cos_column" class="input-gold max-w-xs">
+        <option value="Cos">— scegli colonna —</option>
+        {% for col in columns %}
+        <option value="{{ col }}">{{ col }}</option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <input type="text" name="cos_column" value="Cos" class="input-gold max-w-xs"
+             placeholder="es. Cos">
+      {% endif %}
     </div>
-    <div id="section-datetime" class="hidden">
+
+    <!-- Datetime section -->
+    <div id="section-datetime" class="hidden bg-[#0f0d08] rounded-lg p-3">
+      <p class="text-[#78716c] text-xs mb-3">Mostra solo le partite che si giocano in quel giorno e/o orario.</p>
       <div class="grid grid-cols-2 gap-4 max-w-sm">
         <div>
           <label class="text-[#92400e] text-xs uppercase block mb-1">Giorno</label>
@@ -166,11 +176,11 @@
       <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F3B0; Parlay</h2>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-[#92400e] text-xs uppercase block mb-1">Target min</label>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Moltiplicatore minimo</label>
           <input type="number" name="parlay_target" step="0.5" class="input-gold" placeholder="es. 10">
         </div>
         <div>
-          <label class="text-[#92400e] text-xs uppercase block mb-1">Max</label>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Massimo</label>
           <input type="number" name="parlay_max" step="0.5" class="input-gold" placeholder="es. 30">
         </div>
       </div>
@@ -213,14 +223,6 @@
       document.getElementById('section-'+s)?.classList.add('hidden');
     });
     if (id) document.getElementById('section-'+id)?.classList.remove('hidden');
-  }
-  // Sync COS column hint → COS column input
-  const cosHint = document.getElementById('cos-col-hint');
-  const cosInput = document.getElementById('cos-column-input');
-  if (cosHint && cosInput) {
-    cosHint.addEventListener('change', () => {
-      if (cosHint.value) cosInput.value = cosHint.value;
-    });
   }
   // Persist TheOdds key in localStorage
   const keyInput = document.getElementById('theodds-key');
