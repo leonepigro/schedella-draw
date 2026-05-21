@@ -113,6 +113,14 @@ async def nuova_submit(
     return RedirectResponse(f"/sorteggio/{session_id}", status_code=303)
 
 
+@app.get("/sorteggio", response_class=HTMLResponse)
+async def sorteggio_latest(request: Request):
+    session_id = database.get_latest_session_id(DB_PATH)
+    if not session_id:
+        return RedirectResponse("/nuova")
+    return RedirectResponse(f"/sorteggio/{session_id}")
+
+
 @app.get("/sorteggio/{session_id}", response_class=HTMLResponse)
 async def sorteggio(request: Request, session_id: int):
     session = database.get_session(DB_PATH, session_id)

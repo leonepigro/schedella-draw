@@ -245,6 +245,12 @@ def get_winrate_by_pronostico(path: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_latest_session_id(path: str) -> int | None:
+    with get_connection(path) as con:
+        row = con.execute("SELECT id FROM session ORDER BY id DESC LIMIT 1").fetchone()
+    return row["id"] if row else None
+
+
 def get_schedelle_for_session(path: str, session_id: int) -> list[int]:
     with get_connection(path) as con:
         rows = con.execute(

@@ -50,10 +50,11 @@
   <!-- Desktop top nav -->
   <nav class="hidden md:flex items-center gap-1 px-6 h-14 bg-[#1a160d] border-b border-[#2d2410]">
     <span class="text-[#f59e0b] font-bold text-lg mr-6">&#x26BD; Schedella</span>
-    <a href="/"        class="nav-link {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
-    <a href="/nuova"   class="nav-link {% if active=='nuova'     %}active{% endif %}">Nuova</a>
-    <a href="/storia"  class="nav-link {% if active=='storia'    %}active{% endif %}">Storia</a>
-    <a href="/analisi" class="nav-link {% if active=='analisi'   %}active{% endif %}">Analisi</a>
+    <a href="/"          class="nav-link {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+    <a href="/nuova"     class="nav-link {% if active=='nuova'     %}active{% endif %}">Nuova</a>
+    <a href="/sorteggio" class="nav-link {% if active=='sorteggio' %}active{% endif %}">Sorteggio</a>
+    <a href="/storia"    class="nav-link {% if active=='storia'    %}active{% endif %}">Storia</a>
+    <a href="/analisi"   class="nav-link {% if active=='analisi'   %}active{% endif %}">Analisi</a>
   </nav>
 
   <!-- Mobile top bar -->
@@ -67,16 +68,19 @@
 
   <!-- Mobile bottom nav -->
   <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#1a160d] border-t border-[#2d2410] flex justify-around py-2">
-    <a href="/"        class="flex flex-col items-center text-xs {% if active=='dashboard' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+    <a href="/"          class="flex flex-col items-center text-xs {% if active=='dashboard' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
       <span class="text-xl">&#x1F4CA;</span><span>Home</span>
     </a>
-    <a href="/nuova"   class="flex flex-col items-center text-xs {% if active=='nuova' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
-      <span class="text-xl">&#x1F3B2;</span><span>Nuova</span>
+    <a href="/nuova"     class="flex flex-col items-center text-xs {% if active=='nuova' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+      <span class="text-xl">&#x1F4C2;</span><span>Nuova</span>
     </a>
-    <a href="/storia"  class="flex flex-col items-center text-xs {% if active=='storia' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+    <a href="/sorteggio" class="flex flex-col items-center text-xs {% if active=='sorteggio' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+      <span class="text-xl">&#x1F3B2;</span><span>Sorteggio</span>
+    </a>
+    <a href="/storia"    class="flex flex-col items-center text-xs {% if active=='storia' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
       <span class="text-xl">&#x1F4CB;</span><span>Storia</span>
     </a>
-    <a href="/analisi" class="flex flex-col items-center text-xs {% if active=='analisi' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
+    <a href="/analisi"   class="flex flex-col items-center text-xs {% if active=='analisi' %}text-[#f59e0b]{% else %}text-[#78716c]{% endif %}">
       <span class="text-xl">&#x1F4C8;</span><span>Analisi</span>
     </a>
   </nav>
