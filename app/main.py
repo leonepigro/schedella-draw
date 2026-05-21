@@ -229,19 +229,11 @@ async def save_result(
     actual_multiplier: float = Form(...),
     stake: float = Form(1.0),
 ):
-    database.insert_result(DB_PATH, schedella_id, outcome, actual_multiplier, stake)
+    database.upsert_result(DB_PATH, schedella_id, outcome, actual_multiplier, stake)
+    s = database.get_schedella_by_id(DB_PATH, schedella_id)
     picks = database.get_picks_for_schedella(DB_PATH, schedella_id)
-    profit = round(
-        (stake * actual_multiplier - stake) if outcome == "won"
-        else (-stake if outcome == "lost" else 0.0),
-        2
-    )
     return templates.TemplateResponse(request, "fragments/result_row.html", {
-        "schedella_id": schedella_id,
-        "outcome": outcome,
-        "actual_multiplier": actual_multiplier,
-        "stake": stake,
-        "profit": profit,
+        "s": s,
         "picks": picks,
     })
 

@@ -114,9 +114,43 @@ def insert_result(path: str, schedella_id: int, outcome: str,
         cur = con.execute(
             """INSERT INTO result (schedella_id, outcome, actual_multiplier, stake, profit)
                VALUES (?,?,?,?,?)""",
-            (schedella_id, outcome, actual_multiplier, stake, profit),
+            (schedella_id, outcome, actual_multiplier, stake, round(profit, 2)),
         )
         return cur.lastrowid
+
+
+def upsert_result(path: str, schedella_id: int, outcome: str,
+                  actual_multiplier: float, stake: float) -> None:
+    profit = round(
+        (stake * actual_multiplier - stake) if outcome == "won" else (-stake if outcome == "lost" else 0.0),
+        2
+    )
+    with get_connection(path) as con:
+        existing = con.execute("SELECT id FROM result WHERE schedella_id=?", (schedella_id,)).fetchone()
+        if existing:
+            con.execute(
+                "UPDATE result SET outcome=?, actual_multiplier=?, stake=?, profit=? WHERE schedella_id=?",
+                (outcome, actual_multiplier, stake, profit, schedella_id),
+            )
+        else:
+            con.execute(
+                "INSERT INTO result (schedella_id, outcome, actual_multiplier, stake, profit) VALUES (?,?,?,?,?)",
+                (schedella_id, outcome, actual_multiplier, stake, profit),
+            )
+
+
+def get_schedella_by_id(path: str, schedella_id: int) -> dict:
+    with get_connection(path) as con:
+        row = con.execute("""
+            SELECT s.id, s.created_at, s.player_num, s.participant_name,
+                   se.excel_filename,
+                   r.outcome, r.actual_multiplier, r.stake, r.profit, r.resolved_at
+            FROM schedella s
+            JOIN session se ON se.id = s.session_id
+            LEFT JOIN result r ON r.schedella_id = s.id
+            WHERE s.id = ?
+        """, (schedella_id,)).fetchone()
+    return dict(row) if row else {}
 
 
 def get_session(path: str, session_id: int) -> dict:

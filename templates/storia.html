@@ -36,9 +36,16 @@
     <div class="flex items-center gap-3 flex-shrink-0">
       {% if s.outcome %}
         <span class="badge-{{ s.outcome }}">{{ s.outcome }}</span>
+        {% if s.stake is not none %}
+        <span class="text-[#78716c] text-xs">{{ s.stake }}€ ×{{ s.actual_multiplier }}</span>
+        {% endif %}
         <span class="font-bold {% if s.profit and s.profit > 0 %}text-emerald-400{% elif s.profit and s.profit < 0 %}text-red-400{% else %}text-[#78716c]{% endif %}">
           {% if s.profit is not none %}{{ "%+.2f"|format(s.profit) }}€{% endif %}
         </span>
+        <button class="btn-ghost text-xs"
+                onclick="document.getElementById('result-form-{{ s.id }}').classList.toggle('hidden')">
+          Modifica
+        </button>
       {% else %}
         <button class="btn-ghost text-xs"
                 onclick="document.getElementById('result-form-{{ s.id }}').classList.toggle('hidden')">
@@ -70,7 +77,6 @@
     {% endfor %}
   </div>
 
-  {% if not s.outcome %}
   <div id="result-form-{{ s.id }}" class="hidden mt-3 pt-3 border-t border-[#2d2410]">
     <form hx-post="/storia/{{ s.id }}/result"
           hx-target="#sched-row-{{ s.id }}"
@@ -79,25 +85,26 @@
       <div>
         <label class="text-[#92400e] text-xs uppercase block mb-1">Esito</label>
         <select name="outcome" class="input-gold w-32">
-          <option value="won">✓ Vinto</option>
-          <option value="lost">✗ Perso</option>
-          <option value="void">— Void</option>
+          <option value="won" {% if s.outcome == 'won' %}selected{% endif %}>✓ Vinto</option>
+          <option value="lost" {% if s.outcome == 'lost' %}selected{% endif %}>✗ Perso</option>
+          <option value="void" {% if s.outcome == 'void' %}selected{% endif %}>— Void</option>
         </select>
       </div>
       <div>
         <label class="text-[#92400e] text-xs uppercase block mb-1">Moltiplicatore</label>
-        <input type="number" name="actual_multiplier" step="0.01" value="1"
+        <input type="number" name="actual_multiplier" step="0.01"
+               value="{{ s.actual_multiplier or 1 }}"
                class="input-gold w-28">
       </div>
       <div>
         <label class="text-[#92400e] text-xs uppercase block mb-1">Puntata (€)</label>
-        <input type="number" name="stake" step="0.50" value="5"
+        <input type="number" name="stake" step="0.50"
+               value="{{ s.stake or 5 }}"
                class="input-gold w-24">
       </div>
       <button type="submit" class="btn-gold">Salva</button>
     </form>
   </div>
-  {% endif %}
 </div>
 {% endfor %}
 </div>
