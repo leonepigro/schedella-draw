@@ -3,3 +3,7 @@ openpyxl
 numpy
 requests
 tabulate
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
