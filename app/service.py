@@ -11,6 +11,7 @@ import math
 import tempfile
 import os
 import numpy as np
+import pandas as pd
 
 from src.schedella import (
     PRONOSTICI,
@@ -27,6 +28,15 @@ from src.schedella import (
     draw_matches,
     format_date,
 )
+
+
+def get_excel_columns(excel_bytes: bytes) -> list[str]:
+    try:
+        df = pd.read_excel(io.BytesIO(excel_bytes), engine='openpyxl', header=1, nrows=5)
+        cols = [str(c).strip() for c in df.columns.tolist()]
+        return [c for c in cols if c and not c.startswith('Unnamed')]
+    except Exception:
+        return []
 
 
 def _row_to_match_dict(row, probs, raw_odds):

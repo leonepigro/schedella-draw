@@ -43,9 +43,29 @@ async def nuova_form(request: Request):
 
 
 @app.post("/nuova")
-async def nuova_submit(
+async def nuova_upload(request: Request, excel_file: UploadFile = File(...)):
+    excel_bytes = await excel_file.read()
+    session_id = database.create_upload_session(DB_PATH, excel_file.filename, excel_bytes)
+    return RedirectResponse(f"/configura/{session_id}", status_code=303)
+
+
+@app.get("/configura/{session_id}", response_class=HTMLResponse)
+async def configura_form(request: Request, session_id: int):
+    data = database.get_session_bytes(DB_PATH, session_id)
+    if not data or not data.get("excel_bytes"):
+        return RedirectResponse("/nuova")
+    columns = service.get_excel_columns(data["excel_bytes"])
+    return templates.TemplateResponse(request, "configura.html", {
+        "session_id": session_id,
+        "excel_filename": data["excel_filename"],
+        "columns": columns,
+    })
+
+
+@app.post("/configura/{session_id}")
+async def configura_submit(
     request: Request,
-    excel_file: UploadFile = File(...),
+    session_id: int,
     players: int = Form(1),
     per_player: int = Form(3),
     allow_4th: Optional[str] = Form(None),
@@ -62,7 +82,9 @@ async def nuova_submit(
     debug_odds: Optional[str] = Form(None),
     participant_column: Optional[str] = Form(None),
 ):
-    excel_bytes = await excel_file.read()
+    data = database.get_session_bytes(DB_PATH, session_id)
+    excel_bytes = data["excel_bytes"]
+    excel_filename = data["excel_filename"]
     params = {
         "players": players,
         "per_player": per_player,
@@ -82,13 +104,17 @@ async def nuova_submit(
     }
 
     try:
-        session_data = service.prepare_session(excel_bytes, excel_file.filename, params)
+        session_data = service.prepare_session(excel_bytes, excel_filename, params)
     except Exception as e:
-        return templates.TemplateResponse(request, "nuova.html", {
-            "error": str(e)
+        columns = service.get_excel_columns(excel_bytes)
+        return templates.TemplateResponse(request, "configura.html", {
+            "session_id": session_id,
+            "excel_filename": excel_filename,
+            "columns": columns,
+            "error": str(e),
         }, status_code=400)
 
-    session_id = database.insert_session(DB_PATH, excel_file.filename, params)
+    database.finalize_session(DB_PATH, session_id, params)
     for player in session_data["players"]:
         sched_id = database.insert_schedella(
             DB_PATH, session_id, player["player_num"],
@@ -109,7 +135,6 @@ async def nuova_submit(
             )
 
     database.update_session_matches(DB_PATH, session_id, session_data)
-
     return RedirectResponse(f"/sorteggio/{session_id}", status_code=303)
 
 

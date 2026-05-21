@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% set active = "nuova" %}
+{% block title %}Configura Schedella{% endblock %}
+{% block content %}
+<div class="flex items-center gap-3 mb-6">
+  <a href="/nuova" class="text-[#78716c] hover:text-[#f59e0b] text-sm">&#x2190; Cambia file</a>
+  <h1 class="text-2xl font-bold text-[#f59e0b]">Configura Schedella</h1>
+</div>
+
+<!-- File info -->
+<div class="card mb-4 flex items-center gap-3">
+  <span class="text-2xl">&#x1F4C4;</span>
+  <div>
+    <div class="text-white font-medium text-sm">{{ excel_filename }}</div>
+    <div class="text-[#78716c] text-xs">{{ columns|length }} colonne rilevate</div>
+  </div>
+</div>
+
+{% if error %}
+<div class="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-4 mb-4">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/configura/{{ session_id }}" class="space-y-4">
+
+  <!-- COLONNE -->
+  <div class="card">
+    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F4CB; Colonne Excel</h2>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Colonna Partecipanti</label>
+        {% if columns %}
+        <select name="participant_column" class="input-gold" id="participant-col"
+                onchange="togglePlayersField(this.value)">
+          <option value="">— nessuna (usa numero giocatori) —</option>
+          {% for col in columns %}
+          <option value="{{ col }}">{{ col }}</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input type="text" name="participant_column" id="participant-col" class="input-gold"
+               placeholder="es. Partecipanti"
+               oninput="togglePlayersField(this.value)">
+        {% endif %}
+        <div class="text-[#78716c] text-xs mt-1">Un nome per riga → una schedella per nome</div>
+      </div>
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Colonna COS</label>
+        {% if columns %}
+        <select name="cos_column_hint" class="input-gold" id="cos-col-hint">
+          <option value="">— auto-rilevata —</option>
+          {% for col in columns %}
+          <option value="{{ col }}">{{ col }}</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input type="text" name="cos_column_hint" class="input-gold" placeholder="es. Cos">
+        {% endif %}
+        <div class="text-[#78716c] text-xs mt-1">Solo in modalità "Colonna COS" sotto</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARTITE -->
+  <div class="card">
+    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x26BD; Partite</h2>
+    <div class="grid grid-cols-3 gap-4" id="players-section">
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Giocatori</label>
+        <input type="number" name="players" id="players-count" value="1" min="1" max="20" class="input-gold">
+      </div>
+      <div>
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Partite/Gioc.</label>
+        <input type="number" name="per_player" value="3" min="1" max="10" class="input-gold">
+      </div>
+      <div class="flex items-end pb-2">
+        <label class="toggle-label">
+          <input type="checkbox" name="allow_4th" class="toggle" id="allow4th">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="text-sm text-[#92400e]">4a opzionale</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELEZIONE -->
+  <div class="card">
+    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F3AF; Selezione partite</h2>
+    <div class="flex gap-4 mb-4">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="selection_mode" value="none" checked class="accent-[#f59e0b]"
+               onchange="showSection(null)"> <span class="text-sm">Nessun filtro</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="selection_mode" value="cos" class="accent-[#f59e0b]"
+               onchange="showSection('cos')"> <span class="text-sm">Colonna COS</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="selection_mode" value="datetime" class="accent-[#f59e0b]"
+               onchange="showSection('datetime')"> <span class="text-sm">Giorno + Ora</span>
+      </label>
+    </div>
+    <div id="section-cos" class="hidden">
+      <label class="text-[#92400e] text-xs uppercase block mb-1">Nome colonna COS</label>
+      <input type="text" name="cos_column" id="cos-column-input" value="Cos" class="input-gold max-w-xs">
+    </div>
+    <div id="section-datetime" class="hidden">
+      <div class="grid grid-cols-2 gap-4 max-w-sm">
+        <div>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Giorno</label>
+          <input type="text" name="filter_day" placeholder="es. domenica" class="input-gold">
+        </div>
+        <div>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Ora</label>
+          <input type="text" name="filter_time" placeholder="es. 20:45" class="input-gold">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUOTE + PARLAY -->
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card">
+      <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F4CA; Quote</h2>
+      <label class="text-[#92400e] text-xs uppercase block mb-1">TheOddsAPI Key</label>
+      <input type="text" name="theodds_key" id="theodds-key" class="input-gold mb-3"
+             placeholder="8be3399300ddf79d..." autocomplete="off">
+      <label class="toggle-label">
+        <input type="checkbox" name="use_odds" class="toggle" id="use-odds">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="text-sm text-[#92400e]">Usa quote API</span>
+      </label>
+    </div>
+    <div class="card">
+      <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F3B0; Parlay</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Target min</label>
+          <input type="number" name="parlay_target" step="0.5" class="input-gold" placeholder="es. 10">
+        </div>
+        <div>
+          <label class="text-[#92400e] text-xs uppercase block mb-1">Max</label>
+          <input type="number" name="parlay_max" step="0.5" class="input-gold" placeholder="es. 30">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AVANZATE -->
+  <details class="card">
+    <summary class="text-[#92400e] cursor-pointer select-none text-sm font-medium">&#x2699;&#xFE0F; Avanzate</summary>
+    <div class="mt-4 space-y-3">
+      <label class="toggle-label">
+        <input type="checkbox" name="only_mandatory" class="toggle">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="text-sm text-[#92400e]">Solo partite obbligatorie</span>
+      </label>
+      <div class="max-w-xs">
+        <label class="text-[#92400e] text-xs uppercase block mb-1">Seed (riproducibilità)</label>
+        <input type="number" name="seed" class="input-gold" placeholder="opzionale">
+      </div>
+      <label class="toggle-label">
+        <input type="checkbox" name="debug_odds" class="toggle">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="text-sm text-[#92400e]">Debug odds</span>
+      </label>
+    </div>
+  </details>
+
+  <button type="submit" class="btn-gold w-full py-3 text-base">&#x25B6; Avvia Sorteggio</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function togglePlayersField(val) {
+    const sec = document.getElementById('players-section');
+    if (sec) sec.style.opacity = val && val.trim() ? '0.4' : '1';
+  }
+  function showSection(id) {
+    ['cos','datetime'].forEach(s => {
+      document.getElementById('section-'+s)?.classList.add('hidden');
+    });
+    if (id) document.getElementById('section-'+id)?.classList.remove('hidden');
+  }
+  // Sync COS column hint → COS column input
+  const cosHint = document.getElementById('cos-col-hint');
+  const cosInput = document.getElementById('cos-column-input');
+  if (cosHint && cosInput) {
+    cosHint.addEventListener('change', () => {
+      if (cosHint.value) cosInput.value = cosHint.value;
+    });
+  }
+  // Persist TheOdds key in localStorage
+  const keyInput = document.getElementById('theodds-key');
+  const useOdds  = document.getElementById('use-odds');
+  if (keyInput) {
+    keyInput.value = localStorage.getItem('theodds_key') || '';
+    if (keyInput.value) useOdds.checked = true;
+    keyInput.addEventListener('change', () => {
+      localStorage.setItem('theodds_key', keyInput.value);
+      if (keyInput.value) useOdds.checked = true;
+    });
+  }
+</script>
+{% endblock %}

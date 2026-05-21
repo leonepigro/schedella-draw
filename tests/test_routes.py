@@ -46,66 +46,62 @@ def _excel_bytes():
         df.to_excel(w, index=False, startrow=1)
     return buf.getvalue()
 
-def test_post_nuova_redirects_to_sorteggio(client):
+def _create_session(client, players=1, per_player=3, selection_mode="none", cos_column="Cos"):
+    """Two-step flow: upload → configura → sorteggio. Returns session_id."""
     data = _excel_bytes()
-    r = client.post("/nuova", data={
-        "players": "1", "per_player": "3",
+    mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # Step 1: upload file
+    r1 = client.post("/nuova", files={"excel_file": ("test.xlsx", data, mime)},
+                     follow_redirects=False)
+    assert r1.status_code in (302, 303)
+    session_id = r1.headers["location"].split("/")[-1]
+    # Step 2: configure
+    r2 = client.post(f"/configura/{session_id}", data={
+        "players": str(players), "per_player": str(per_player),
+        "selection_mode": selection_mode,
+        "cos_column": cos_column,
         "allow_4th": "", "use_odds": "",
-        "selection_mode": "cos", "cos_column": "Cos",
-    }, files={"excel_file": ("test.xlsx", data,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
-        follow_redirects=False)
+    }, follow_redirects=False)
+    assert r2.status_code in (302, 303)
+    assert "/sorteggio/" in r2.headers["location"]
+    return int(r2.headers["location"].split("/")[-1])
+
+def test_post_nuova_redirects_to_configura(client):
+    data = _excel_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    r = client.post("/nuova", files={"excel_file": ("test.xlsx", data, mime)},
+                    follow_redirects=False)
     assert r.status_code in (302, 303)
-    assert "/sorteggio/" in r.headers["location"]
+    assert "/configura/" in r.headers["location"]
+
+def test_configura_redirects_to_sorteggio(client):
+    _create_session(client)  # asserts internally
 
 def test_sorteggio_page_loads(client):
-    data = _excel_bytes()
-    r = client.post("/nuova", data={
-        "players": "1", "per_player": "2",
-        "allow_4th": "", "use_odds": "",
-        "selection_mode": "none",
-    }, files={"excel_file": ("t.xlsx", data,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
-        follow_redirects=False)
-    session_id = r.headers["location"].split("/")[-1]
-    r2 = client.get(f"/sorteggio/{session_id}")
-    assert r2.status_code == 200
-    assert "Lancia" in r2.text
+    session_id = _create_session(client, per_player=2)
+    r = client.get(f"/sorteggio/{session_id}")
+    assert r.status_code == 200
+    assert "Lancia" in r.text
 
 def test_roll_pick_returns_fragment(client):
-    data = _excel_bytes()
-    r = client.post("/nuova", data={
-        "players": "1", "per_player": "2",
-        "selection_mode": "none", "allow_4th": "", "use_odds": "",
-    }, files={"excel_file": ("t.xlsx", data,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
-        follow_redirects=False)
-    session_id = r.headers["location"].split("/")[-1]
-    # Get the schedella id
+    session_id = _create_session(client, per_player=2)
     from app.db import get_schedelle_for_session
     import os
     db_path = os.environ.get("DB_PATH", "data/schedella.db")
-    schedella_ids = get_schedelle_for_session(db_path, int(session_id))
-    r2 = client.post(f"/sorteggio/{session_id}/roll/0",
-                     data={"schedella_id": str(schedella_ids[0])},
-                     headers={"HX-Request": "true"})
-    assert r2.status_code == 200
-    assert "badge-pron" in r2.text or "pronostico" in r2.text.lower()
+    schedella_ids = get_schedelle_for_session(db_path, session_id)
+    r = client.post(f"/sorteggio/{session_id}/roll/0",
+                    data={"schedella_id": str(schedella_ids[0])},
+                    headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "badge-pron" in r.text or "pronostico" in r.text.lower()
 
 def test_save_result(client):
-    data = _excel_bytes()
-    r = client.post("/nuova", data={
-        "players": "1", "per_player": "2",
-        "selection_mode": "none", "allow_4th": "", "use_odds": "",
-    }, files={"excel_file": ("t.xlsx", data,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
-        follow_redirects=False)
-    session_id = int(r.headers["location"].split("/")[-1])
+    session_id = _create_session(client, per_player=2)
     import os
     from app.db import get_schedelle_for_session
     db_path = os.environ.get("DB_PATH", "data/schedella.db")
     schedelle = get_schedelle_for_session(db_path, session_id)
-    r2 = client.post(f"/storia/{schedelle[0]}/result",
-                     data={"outcome": "won", "actual_multiplier": "12.5", "stake": "5"},
-                     headers={"HX-Request": "true"})
-    assert r2.status_code == 200
+    r = client.post(f"/storia/{schedelle[0]}/result",
+                    data={"outcome": "won", "actual_multiplier": "12.5", "stake": "5"},
+                    headers={"HX-Request": "true"})
+    assert r.status_code == 200

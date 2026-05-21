@@ -62,10 +62,13 @@ def init_db(path: str = DB_PATH) -> None:
                 resolved_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        # Migration: add participant_name to existing databases
-        cols = {row[1] for row in con.execute("PRAGMA table_info(schedella)").fetchall()}
-        if "participant_name" not in cols:
+        # Migrations
+        sched_cols = {row[1] for row in con.execute("PRAGMA table_info(schedella)").fetchall()}
+        if "participant_name" not in sched_cols:
             con.execute("ALTER TABLE schedella ADD COLUMN participant_name TEXT")
+        sess_cols = {row[1] for row in con.execute("PRAGMA table_info(session)").fetchall()}
+        if "excel_bytes" not in sess_cols:
+            con.execute("ALTER TABLE session ADD COLUMN excel_bytes BLOB")
 
 
 def insert_session(path: str, excel_filename: str, params: dict) -> int:
@@ -75,6 +78,31 @@ def insert_session(path: str, excel_filename: str, params: dict) -> int:
             (excel_filename, json.dumps(params)),
         )
         return cur.lastrowid
+
+
+def create_upload_session(path: str, excel_filename: str, excel_bytes: bytes) -> int:
+    with get_connection(path) as con:
+        cur = con.execute(
+            "INSERT INTO session (excel_filename, params_json, excel_bytes) VALUES (?,?,?)",
+            (excel_filename, '{}', excel_bytes),
+        )
+        return cur.lastrowid
+
+
+def get_session_bytes(path: str, session_id: int) -> dict:
+    with get_connection(path) as con:
+        row = con.execute(
+            "SELECT excel_bytes, excel_filename FROM session WHERE id=?", (session_id,)
+        ).fetchone()
+    return dict(row) if row else {}
+
+
+def finalize_session(path: str, session_id: int, params: dict) -> None:
+    with get_connection(path) as con:
+        con.execute(
+            "UPDATE session SET params_json=? WHERE id=?",
+            (json.dumps(params), session_id),
+        )
 
 
 def insert_schedella(path: str, session_id: int, player_num: int, participant_name: str = None) -> int:
