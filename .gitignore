@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Data
+data/
+*.db
+*.sqlite
+
+# Excel uploads (runtime)
+uploads/
+
+# Superpowers brainstorming
+.superpowers/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
