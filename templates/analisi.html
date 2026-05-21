@@ -1,4 +1,119 @@
 {% extends "base.html" %}
 {% set active = "analisi" %}
 {% block title %}Analisi{% endblock %}
-{% block content %}<h1 class="text-2xl font-bold text-[#f59e0b]">Analisi</h1>{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-[#f59e0b] mb-6">Analisi ROI</h1>
+
+<!-- Summary KPIs -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  <div class="card">
+    <div class="text-[#92400e] text-xs mb-1">SCHEDELLE TOTALI</div>
+    <div class="text-2xl font-bold">{{ stats.total }}</div>
+  </div>
+  <div class="card">
+    <div class="text-[#92400e] text-xs mb-1">WIN RATE</div>
+    <div class="text-2xl font-bold text-emerald-400">{{ stats.win_rate }}%</div>
+  </div>
+  <div class="card">
+    <div class="text-[#92400e] text-xs mb-1">ROI</div>
+    <div class="text-2xl font-bold {% if stats.roi >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+      {{ stats.roi }}%
+    </div>
+  </div>
+  <div class="card">
+    <div class="text-[#92400e] text-xs mb-1">PROFIT NETTO</div>
+    <div class="text-2xl font-bold {% if stats.total_profit >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+      {{ "%+.2f"|format(stats.total_profit) }}€
+    </div>
+  </div>
+</div>
+
+{% if stats.total == 0 %}
+<div class="card text-center py-16 text-[#78716c]">
+  Nessun dato ancora. <a href="/nuova" class="text-[#f59e0b] hover:underline">Crea una schedella!</a>
+</div>
+{% else %}
+
+<!-- ROI over time -->
+<div class="card mb-6">
+  <h2 class="text-[#f59e0b] font-semibold mb-4">Profit cumulativo nel tempo</h2>
+  <canvas id="roi-chart" height="120"></canvas>
+</div>
+
+<!-- Win rate by pronostico -->
+<div class="card mb-6">
+  <h2 class="text-[#f59e0b] font-semibold mb-4">Win rate per tipo di pronostico</h2>
+  <canvas id="winrate-chart" height="120"></canvas>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if stats.total > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const GOLD = '#f59e0b';
+  const DIM = '#2d2410';
+  const GREEN = '#10b981';
+  Chart.defaults.color = '#92400e';
+  Chart.defaults.borderColor = '#2d2410';
+
+  const roiData = {{ roi_data | tojson }};
+  if (roiData.length > 0) {
+    new Chart(document.getElementById('roi-chart'), {
+      type: 'line',
+      data: {
+        labels: roiData.map(d => d.date),
+        datasets: [{
+          label: 'Profit cumulativo (€)',
+          data: roiData.map(d => d.cumulative_profit),
+          borderColor: GOLD,
+          backgroundColor: 'rgba(245,158,11,0.08)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: GOLD,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: DIM } },
+          y: { grid: { color: DIM }, ticks: { callback: v => v + '€' } }
+        }
+      }
+    });
+  }
+
+  const wrData = {{ winrate_data | tojson }};
+  if (wrData.length > 0) {
+    const labels = wrData.map(d => d.pronostico?.toUpperCase() || '?');
+    const winRates = wrData.map(d => d.total > 0 ? Math.round(d.wins / d.total * 100) : 0);
+    new Chart(document.getElementById('winrate-chart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Win rate %',
+          data: winRates,
+          backgroundColor: winRates.map(v => v >= 50 ? 'rgba(16,185,129,0.7)' : 'rgba(245,158,11,0.5)'),
+          borderColor: winRates.map(v => v >= 50 ? GREEN : GOLD),
+          borderWidth: 1,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: DIM } },
+          y: { grid: { color: DIM }, min: 0, max: 100, ticks: { callback: v => v + '%' } }
+        }
+      }
+    });
+  }
+</script>
+{% endif %}
+{% endblock %}
