@@ -426,6 +426,7 @@ def probs_from_theodds(row, api_key, debug_odds=False):
                     return full
 
     # fallback: fetch broad odds if event-by-event lookup fails
+    base = 'https://api.the-odds-api.com/v4'
     params = {
         'regions': 'eu',
         'markets': 'h2h,totals',

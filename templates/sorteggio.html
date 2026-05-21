@@ -82,7 +82,7 @@
   (function() {
     const canvas = document.getElementById('dice-canvas-{{ player.schedella_id }}');
     if (canvas && typeof SchedellaDice !== 'undefined') {
-      const labels = {{ player.matches[0].available_pronostici | map(attribute='pron') | list | tojson if player.matches else '[]' }};
+      const labels = {% if player.matches|length > 0 %}{{ player.matches[0].available_pronostici | map(attribute='pron') | list | tojson }}{% else %}[]{% endif %};
       diceMap['{{ player.schedella_id }}'] = new SchedellaDice(canvas, labels);
     }
   })();

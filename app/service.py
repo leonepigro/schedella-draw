@@ -48,7 +48,7 @@ def _row_to_match_dict(row, probs, raw_odds):
         "match_name": str(row["match"]),
         "match_date": format_date(row["date"]),
         "probs": [float(p) for p in probs],
-        "raw_odds": [float(ro) for ro in raw_odds],
+        "raw_odds": [None if (isinstance(ro, float) and ro != ro) else float(ro) for ro in raw_odds],
         "available_pronostici": available_pronostici,
         "best_ev": ev_pron,
         "best_ev_value": float(ev_val),
@@ -252,8 +252,12 @@ def roll_pick(match_data: dict, seed=None) -> dict:
     best_ev_pron, _ = best_by_ev(probs)
 
     # Raw odds for the picked pronostico
-    ro = float(raw_odds_arr[face_idx]) if face_idx < len(raw_odds_arr) else float("nan")
-    ro_out = None if math.isnan(ro) else ro
+    _ro_val = raw_odds_arr[face_idx] if face_idx < len(raw_odds_arr) else None
+    if _ro_val is None:
+        ro_out = None
+    else:
+        ro = float(_ro_val)
+        ro_out = None if math.isnan(ro) else ro
 
     return {
         "pronostico": pronostico,

@@ -6,6 +6,6 @@
   </div>
   <div class="flex items-center gap-2">
     <span class="badge-pron text-base font-bold px-3 py-1">{{ result.pronostico|upper }}</span>
-    <span class="text-[#78716c] text-xs">{{ result.raw_odds }}x</span>
+    <span class="text-[#78716c] text-xs">{% if result.raw_odds is not none %}{{ result.raw_odds }}x{% endif %}</span>
   </div>
 </div>

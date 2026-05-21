@@ -127,7 +127,7 @@ class SchedellaDice {
       return;
     }
     this._updateFaceTextures(pronostico);
-    const target = new THREE.Vector3(0, 0, 1);
+    const target = new THREE.Vector3(0, 0, -1);
     const faceDir = this.faceNormals[faceIdx].clone();
     const q = new THREE.Quaternion().setFromUnitVectors(faceDir, target);
     this.rollTarget = q;
