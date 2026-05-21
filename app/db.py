@@ -9,7 +9,9 @@ DB_PATH = os.environ.get("DB_PATH", "data/schedella.db")
 
 @contextmanager
 def get_connection(path: str = DB_PATH):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    dirpath = os.path.dirname(path)
+    if dirpath:
+        os.makedirs(dirpath, exist_ok=True)
     con = sqlite3.connect(path)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
@@ -226,6 +228,8 @@ def update_session_matches(path: str, session_id: int, session_data: dict) -> No
         existing = con.execute(
             "SELECT params_json FROM session WHERE id=?", (session_id,)
         ).fetchone()
+        if not existing:
+            raise ValueError(f"Session {session_id} not found")
         params = json.loads(existing["params_json"])
         params["_match_data"] = session_data
         con.execute(
