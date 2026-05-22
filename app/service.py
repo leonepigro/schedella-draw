@@ -30,20 +30,44 @@ from src.schedella import (
 )
 
 
-def get_excel_preview(excel_bytes: bytes, max_rows: int = 10) -> dict:
+def get_excel_preview(excel_bytes: bytes, filename: str = "upload.xlsx", max_rows: int = 10) -> dict:
     try:
-        df = pd.read_excel(io.BytesIO(excel_bytes), engine='openpyxl', header=1, nrows=max_rows)
-        df.columns = [str(c).strip() for c in df.columns]
-        df = df.dropna(how='all')
-        all_cols = list(df.columns)
+        df_prev = pd.read_excel(io.BytesIO(excel_bytes), engine='openpyxl', header=1, nrows=max_rows)
+        df_prev.columns = [str(c).strip() for c in df_prev.columns]
+        df_prev = df_prev.dropna(how='all')
+        all_cols = list(df_prev.columns)
         dropdown_cols = [c for c in all_cols if c and not c.startswith('Unnamed')]
         rows = [
             ['' if str(v) in ('nan', 'NaT', 'None', '<NA>') else str(v) for v in row]
-            for _, row in df.iterrows()
+            for _, row in df_prev.iterrows()
         ]
-        return {"all_columns": all_cols, "dropdown_columns": dropdown_cols, "rows": rows}
     except Exception:
-        return {"all_columns": [], "dropdown_columns": [], "rows": []}
+        return {"all_columns": [], "dropdown_columns": [], "rows": [], "matches": []}
+
+    matches = []
+    try:
+        suffix = os.path.splitext(filename)[-1] or ".xlsx"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(excel_bytes)
+            tmp_path = tmp.name
+        try:
+            df_m = read_schedule(tmp_path)
+            for i, (_, row) in enumerate(df_m.iterrows()):
+                name_str = str(row.get("match", "")).strip()
+                if not name_str or name_str == "nan":
+                    continue
+                date_val = row.get("date", "")
+                date_str = "" if str(date_val) in ("nan", "NaT", "None", "<NA>") else str(date_val)[:10]
+                matches.append({"idx": i, "name": name_str, "date": date_str})
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+    except Exception:
+        pass
+
+    return {"all_columns": all_cols, "dropdown_columns": dropdown_cols, "rows": rows, "matches": matches}
 
 
 def _row_to_match_dict(row, probs, raw_odds):
@@ -196,6 +220,16 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
             os.unlink(tmp_path)
         except OSError:
             pass
+
+    # Apply curated match selection (rename + filter)
+    match_selection = params.get("match_selection")
+    if match_selection:
+        name_map = {m["idx"]: m["name"] for m in match_selection}
+        df = df[df.index.isin(name_map.keys())].copy()
+        df["match"] = df.index.map(lambda i: name_map.get(i, df.at[i, "match"]))
+        df.reset_index(drop=True, inplace=True)
+        if df.empty:
+            raise ValueError("Nessuna partita selezionata.")
 
     # Participant names from column take priority over numeric players count
     participant_column = params.get("participant_column")

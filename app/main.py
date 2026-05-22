@@ -54,13 +54,14 @@ async def configura_form(request: Request, session_id: int):
     data = database.get_session_bytes(DB_PATH, session_id)
     if not data or not data.get("excel_bytes"):
         return RedirectResponse("/nuova")
-    preview = service.get_excel_preview(data["excel_bytes"])
+    preview = service.get_excel_preview(data["excel_bytes"], data["excel_filename"])
     return templates.TemplateResponse(request, "configura.html", {
         "session_id": session_id,
         "excel_filename": data["excel_filename"],
         "columns": preview["dropdown_columns"],
         "preview_cols": preview["all_columns"],
         "preview_rows": preview["rows"],
+        "matches": preview["matches"],
     })
 
 
@@ -83,6 +84,7 @@ async def configura_submit(
     seed: Optional[int] = Form(None),
     debug_odds: Optional[str] = Form(None),
     participant_column: Optional[str] = Form(None),
+    match_selection: Optional[str] = Form(None),
 ):
     data = database.get_session_bytes(DB_PATH, session_id)
     excel_bytes = data["excel_bytes"]
@@ -103,18 +105,20 @@ async def configura_submit(
         "seed": seed,
         "debug_odds": debug_odds is not None,
         "participant_column": participant_column or None,
+        "match_selection": json.loads(match_selection) if match_selection else None,
     }
 
     try:
         session_data = service.prepare_session(excel_bytes, excel_filename, params)
     except Exception as e:
-        preview = service.get_excel_preview(excel_bytes)
+        preview = service.get_excel_preview(excel_bytes, excel_filename)
         return templates.TemplateResponse(request, "configura.html", {
             "session_id": session_id,
             "excel_filename": excel_filename,
             "columns": preview["dropdown_columns"],
             "preview_cols": preview["all_columns"],
             "preview_rows": preview["rows"],
+            "matches": preview["matches"],
             "error": str(e),
         }, status_code=400)
 
