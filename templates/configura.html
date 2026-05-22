@@ -159,6 +159,40 @@
     </div>
   </div>
 
+  <!-- PARTITE DISPONIBILI -->
+  {% if matches %}
+  <div class="card">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-[#f59e0b] font-semibold">&#x1F4CB; Partite disponibili</h2>
+      <span id="match-count" class="text-[#78716c] text-xs"></span>
+    </div>
+    <p class="text-[#78716c] text-xs mb-3">
+      Tutte selezionate di default. Deseleziona, elimina o rinomina prima di avviare.
+    </p>
+    <div id="match-list" class="space-y-1">
+      {% for m in matches %}
+      <div class="match-item flex items-center gap-2 bg-[#0f0d08] rounded-lg px-3 py-2"
+           data-idx="{{ m.idx }}">
+        <input type="checkbox" class="match-cb accent-[#f59e0b] w-4 h-4 flex-shrink-0"
+               checked onchange="updateMatchSelection()">
+        <span class="text-[#78716c] text-xs w-24 flex-shrink-0 truncate">{{ m.date }}</span>
+        <span class="match-name flex-1 text-sm text-[#e5e7eb] min-w-0 truncate outline-none
+                     focus:bg-[#1a160d] focus:text-[#fde68a] focus:truncate-none rounded px-1"
+              contenteditable="false"
+              onblur="finalizeRename(this)">{{ m.name }}</span>
+        <button type="button" onclick="startRename(this.previousElementSibling)"
+                class="text-[#78716c] hover:text-[#f59e0b] text-sm px-1 flex-shrink-0"
+                title="Rinomina">&#x270E;</button>
+        <button type="button" onclick="deleteMatch(this.closest('.match-item'))"
+                class="text-[#78716c] hover:text-red-400 text-sm px-1 flex-shrink-0"
+                title="Elimina">&#x2715;</button>
+      </div>
+      {% endfor %}
+    </div>
+    <input type="hidden" name="match_selection" id="match-selection-input">
+  </div>
+  {% endif %}
+
   <!-- QUOTE + PARLAY -->
   <div class="grid md:grid-cols-2 gap-4">
     <div class="card">
@@ -224,6 +258,60 @@
     });
     if (id) document.getElementById('section-'+id)?.classList.remove('hidden');
   }
+  // ── Match selection ────────────────────────────────────────────────────
+  function updateMatchSelection() {
+    const items = document.querySelectorAll('#match-list .match-item');
+    const sel = [];
+    items.forEach(item => {
+      const cb = item.querySelector('.match-cb');
+      if (cb && cb.checked) {
+        sel.push({
+          idx:  parseInt(item.dataset.idx),
+          name: item.querySelector('.match-name').textContent.trim(),
+        });
+      }
+    });
+    const inp = document.getElementById('match-selection-input');
+    if (inp) inp.value = sel.length ? JSON.stringify(sel) : '';
+    const cnt = document.getElementById('match-count');
+    if (cnt) cnt.textContent = sel.length + ' selezionate';
+  }
+
+  function startRename(el) {
+    el.contentEditable = 'true';
+    el.classList.remove('truncate');
+    el.focus();
+    // Select all text
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  }
+
+  function finalizeRename(el) {
+    el.contentEditable = 'false';
+    el.classList.add('truncate');
+    if (!el.textContent.trim()) el.textContent = el.dataset.original || el.textContent;
+    updateMatchSelection();
+  }
+
+  function deleteMatch(item) {
+    item.remove();
+    updateMatchSelection();
+  }
+
+  // Prevent newline on Enter in contenteditable
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.contentEditable === 'true') {
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+
+  // Init on load
+  document.addEventListener('DOMContentLoaded', updateMatchSelection);
+
   // Persist TheOdds key in localStorage
   const keyInput = document.getElementById('theodds-key');
   const useOdds  = document.getElementById('use-odds');
