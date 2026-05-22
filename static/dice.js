@@ -10,9 +10,21 @@
  * SETTLE: eases to the exact face, highlights it, then fires onComplete
  */
 class SchedellaDice {
-  constructor(canvas, labels) {
+  constructor(canvas, labels, options = {}) {
     this.canvas = canvas;
     this.labels = labels;
+    this.colors = {
+      bg:          options.bg          || '#0a0804',
+      bgActive:    options.bgActive    || '#1e1508',
+      accent:      options.accent      || '#f59e0b',
+      accentDim:   options.accentDim   || '#2d1e00',
+      text:        options.text        || '#fde68a',
+      textDim:     options.textDim     || '#4d3d1c',
+      edge:        options.edge        || '#7a5500',
+      specular:    options.specular    || '#3a2800',
+      keyLight:    options.keyLight    || 0xfde68a,
+      rimLight:    options.rimLight    || 0xf59e0b,
+    };
 
     const W = canvas.clientWidth  || 300;
     const H = canvas.clientHeight || 300;
@@ -31,11 +43,11 @@ class SchedellaDice {
 
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.32));
 
-    const key = new THREE.PointLight(0xfde68a, 7.0, 26);
+    const key = new THREE.PointLight(this.colors.keyLight, 7.0, 26);
     key.position.set(4, 9, 6);
     this.scene.add(key);
 
-    const rim = new THREE.PointLight(0xf59e0b, 2.5, 18);
+    const rim = new THREE.PointLight(this.colors.rimLight, 2.5, 18);
     rim.position.set(-5, -3, -3);
     this.scene.add(rim);
 
@@ -68,33 +80,34 @@ class SchedellaDice {
     cv.width = cv.height = S;
     const ctx = cv.getContext('2d');
 
-    ctx.fillStyle = active ? '#1c1407' : '#080603';
+    const C = this.colors;
+    ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, S, S);
 
     if (isPentagon) {
       ctx.beginPath();
       ctx.arc(S / 2, S / 2, S / 2 - 5, 0, Math.PI * 2);
-      ctx.fillStyle = active ? '#1e1508' : '#0c0905';
+      ctx.fillStyle = active ? C.bgActive : C.bg;
       ctx.fill();
-      ctx.strokeStyle = active ? '#f59e0b' : '#2d1e00';
+      ctx.strokeStyle = active ? C.accent : C.accentDim;
       ctx.lineWidth = active ? 9 : 4;
       ctx.stroke();
     } else {
       const bw = active ? 11 : 5;
-      ctx.strokeStyle = active ? '#f59e0b' : '#2d1e00';
+      ctx.strokeStyle = active ? C.accent : C.accentDim;
       ctx.lineWidth = bw;
       ctx.strokeRect(bw / 2, bw / 2, S - bw, S - bw);
     }
 
     if (active) {
       const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * 0.48);
-      g.addColorStop(0, 'rgba(253,230,138,0.22)');
-      g.addColorStop(1, 'rgba(245,158,11,0)');
+      g.addColorStop(0, C.text + '38');
+      g.addColorStop(1, C.accent + '00');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, S, S);
     }
 
-    ctx.fillStyle = active ? '#fde68a' : '#4d3d1c';
+    ctx.fillStyle = active ? C.text : C.textDim;
     const fs = label.length > 4 ? 44 : label.length > 2 ? 58 : 82;
     ctx.font = `900 ${fs}px monospace`;
     ctx.textAlign = 'center';
@@ -165,14 +178,14 @@ class SchedellaDice {
       new THREE.MeshPhongMaterial({
         map:      this._makeTexture(lbl, false, i >= 5),
         shininess: 55,
-        specular:  new THREE.Color(0x3a2800),
+        specular:  new THREE.Color(this.colors.specular),
       })
     );
 
     const drum  = new THREE.Mesh(sideGeo, this.mats.slice(0, 5));
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(sideGeo, 1),
-      new THREE.LineBasicMaterial({ color: 0x7a5500 })
+      new THREE.LineBasicMaterial({ color: this.colors.edge })
     );
 
     const topGeo  = this._makePentagonGeo(+HL + 0.002, +1);
@@ -180,13 +193,31 @@ class SchedellaDice {
     const topMesh = new THREE.Mesh(topGeo, this.mats[5]);
     const botMesh = new THREE.Mesh(botGeo, this.mats[6]);
 
-    const eM = new THREE.LineBasicMaterial({ color: 0x7a5500 });
+    const eM = new THREE.LineBasicMaterial({ color: this.colors.edge });
     const topEdge = new THREE.LineSegments(new THREE.EdgesGeometry(topGeo), eM);
     const botEdge = new THREE.LineSegments(new THREE.EdgesGeometry(botGeo), eM);
 
     this.group = new THREE.Group();
     this.group.add(drum, edges, topMesh, botMesh, topEdge, botEdge);
     this.scene.add(this.group);
+  }
+
+  // ── Theme change (live, no rebuild) ──────────────────────────────────────
+  setColors(options) {
+    Object.assign(this.colors, options);
+    // Rebuild edges color
+    this.group.children.forEach(c => {
+      if (c.isLineSegments && c.material) {
+        c.material.color.set(this.colors.edge);
+      }
+    });
+    // Rebuild all face textures (keep active state)
+    this.labels.forEach((lbl, i) => {
+      this.mats[i].map.dispose();
+      this.mats[i].map = this._makeTexture(lbl, false, i >= 5);
+      this.mats[i].needsUpdate = true;
+      this.mats[i].specular.set(this.colors.specular);
+    });
   }
 
   // ── Public API ────────────────────────────────────────────────────────────

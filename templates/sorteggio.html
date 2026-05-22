@@ -107,6 +107,23 @@
       </canvas>
       <div id="dice-result-{{ player.schedella_id }}"
            class="mt-4 text-3xl font-black text-[#fde68a] tracking-widest min-h-10"></div>
+      <!-- Color palette -->
+      <div class="flex gap-2 mt-3">
+        {% for theme in [
+          ('oro',    '#0a0804','#f59e0b','#fde68a','#2d1e00','#4d3d1c','#7a5500','#3a2800',0xfde68a,0xf59e0b),
+          ('rosso',  '#0a0404','#ef4444','#fca5a5','#3b0d0d','#7a2020','#9b1c1c','#5a1010',0xfca5a5,0xef4444),
+          ('blu',    '#04060a','#3b82f6','#93c5fd','#0c1a3b','#1e3a7a','#1d4ed8','#1e3a6a',0x93c5fd,0x3b82f6),
+          ('verde',  '#04090a','#22c55e','#86efac','#0a2b14','#1a5c30','#15803d','#14532d',0x86efac,0x22c55e),
+          ('viola',  '#07040a','#a855f7','#d8b4fe','#2a1040','#6a2a9a','#7e22ce','#4a1070',0xd8b4fe,0xa855f7),
+          ('bianco', '#f0efea','#1a1a1a','#111111','#cccccc','#555555','#888888','#444444',0xffffff,0xcccccc),
+        ] %}
+        {% set name,bg,accent,text,accentDim,textDim,edge,specular,keyHex,rimHex = theme %}
+        <button type="button"
+                onclick="setDiceTheme('{{ player.schedella_id }}', {bg:'{{ bg }}',bgActive:'{{ bg }}',accent:'{{ accent }}',text:'{{ text }}',accentDim:'{{ accentDim }}',textDim:'{{ textDim }}',edge:'{{ edge }}',specular:'{{ specular }}',keyLight:{{ keyHex }},rimLight:{{ rimHex }}})"
+                class="w-6 h-6 rounded-full border-2 border-[#2d2410] hover:scale-110 transition-transform"
+                style="background:{{ accent }}" title="{{ name }}"></button>
+        {% endfor %}
+      </div>
     </div>
 
   </div>
@@ -131,6 +148,10 @@
     }
   })();
   {% endfor %}
+
+  function setDiceTheme(schedId, colors) {
+    if (diceMap[schedId]) diceMap[schedId].setColors(colors);
+  }
 
   function startRollForSched(schedId) {
     if (diceMap[schedId]) diceMap[schedId].startRoll();
