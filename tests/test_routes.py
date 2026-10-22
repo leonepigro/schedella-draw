@@ -130,3 +130,22 @@ def test_api_form_without_key(client, monkeypatch):
     r = client.post("/api/form", json={"matches": ["Napoli - Roma"]})
     assert r.status_code == 200
     assert r.json()["error"]
+
+
+def test_nuova_lists_and_reopens_uploads(client):
+    data = _excel_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    r = client.post("/nuova", files={"excel_file": ("Giornata8.xlsx", data, mime)}, follow_redirects=False)
+    orig_id = int(r.headers["location"].split("/")[-1])
+    page = client.get("/nuova").text
+    assert "Giornata8.xlsx" in page and f"/nuova/riapri/{orig_id}" in page
+    r2 = client.post(f"/nuova/riapri/{orig_id}", follow_redirects=False)
+    assert r2.status_code == 303
+    new_id = int(r2.headers["location"].split("/")[-1])
+    assert new_id != orig_id
+    assert "Giornata8.xlsx" in client.get(r2.headers["location"]).text
+
+
+def test_reopen_missing_session(client):
+    r = client.post("/nuova/riapri/9999", follow_redirects=False)
+    assert r.headers["location"] == "/nuova"

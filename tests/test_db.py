@@ -61,3 +61,15 @@ def test_snapshot_first_and_dedup(db_path):
     assert add_odds_snapshot(db_path, "ev1", "Napoli - AS Roma", [2.83, 3.45, 2.56, None, None, None, None])
     first = get_first_odds_snapshot(db_path, "ev1")
     assert first["odds"][0] == 2.95 and first["fetched_at"]
+
+
+from app.db import create_upload_session, get_recent_uploads
+
+
+def test_recent_uploads_latest_per_filename(db_path):
+    a1 = create_upload_session(db_path, "A.xlsx", b"1")
+    b1 = create_upload_session(db_path, "B.xlsx", b"2")
+    a2 = create_upload_session(db_path, "A.xlsx", b"3")
+    ups = get_recent_uploads(db_path)
+    assert [u["session_id"] for u in ups] == [a2, b1]
+    assert ups[0]["excel_filename"] == "A.xlsx" and ups[0]["created_at"]

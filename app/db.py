@@ -342,3 +342,18 @@ def get_first_odds_snapshot(path: str, event_id: str) -> Optional[dict]:
             (event_id,),
         ).fetchone()
     return {"odds": json.loads(row["odds_json"]), "fetched_at": row["fetched_at"]} if row else None
+
+
+def get_recent_uploads(path: str, limit: int = 10) -> list[dict]:
+    """Latest uploaded session per Excel filename, newest first."""
+    with get_connection(path) as con:
+        rows = con.execute(
+            """SELECT s.id AS session_id, s.excel_filename, s.created_at
+               FROM session s
+               WHERE s.excel_bytes IS NOT NULL
+                 AND s.id = (SELECT MAX(s2.id) FROM session s2
+                             WHERE s2.excel_filename = s.excel_filename AND s2.excel_bytes IS NOT NULL)
+               ORDER BY s.id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]

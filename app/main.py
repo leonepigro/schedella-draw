@@ -51,6 +51,7 @@ async def nuova_form(request: Request):
     default_path = _default_excel_path()
     return templates.TemplateResponse(request, "nuova.html", {
         "default_excel": os.path.basename(default_path) if default_path else None,
+        "recent_uploads": database.get_recent_uploads(DB_PATH),
     })
 
 
@@ -59,6 +60,16 @@ async def nuova_upload(request: Request, excel_file: UploadFile = File(...)):
     excel_bytes = await excel_file.read()
     session_id = database.create_upload_session(DB_PATH, excel_file.filename, excel_bytes)
     return RedirectResponse(f"/configura/{session_id}", status_code=303)
+
+
+@app.post("/nuova/riapri/{session_id}")
+async def nuova_riapri(session_id: int):
+    # Copy into a new session so an already drawn session is never altered.
+    data = database.get_session_bytes(DB_PATH, session_id)
+    if not data or not data.get("excel_bytes"):
+        return RedirectResponse("/nuova", status_code=303)
+    new_id = database.create_upload_session(DB_PATH, data["excel_filename"], data["excel_bytes"])
+    return RedirectResponse(f"/configura/{new_id}", status_code=303)
 
 
 @app.post("/nuova/default")

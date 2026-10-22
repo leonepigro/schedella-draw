@@ -11,6 +11,23 @@
 <p class="text-[#78716c] text-xs text-center mb-4">oppure carica un altro file</p>
 {% endif %}
 
+{% if recent_uploads %}
+<div class="card mb-4">
+  <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F5C2; Schedelle caricate</h2>
+  <div class="space-y-1">
+    {% for u in recent_uploads %}
+    <form method="post" action="/nuova/riapri/{{ u.session_id }}">
+      <button type="submit"
+              class="w-full flex items-center justify-between bg-[#0f0d08] hover:bg-[#1a160d] rounded-lg px-3 py-2 text-sm">
+        <span class="text-[#e5e7eb] truncate">{{ u.excel_filename }}</span>
+        <span class="text-[#78716c] text-xs flex-shrink-0 ml-3">{{ u.created_at[:16] }} UTC &#x2192;</span>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <form method="post" action="/nuova" enctype="multipart/form-data" class="space-y-4">
   <div class="card">
     <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F4C1; File Excel</h2>
