@@ -25,10 +25,5 @@
       {% if match.best_odds_value %}<span class="text-[#4b5563]">({{ "%.2f"|format(match.best_odds_value) }}x)</span>{% endif %}
     </span>
     {% endif %}
-    {% if match.best_ev %}
-    <span class="text-[#78716c]">Best EV: <span class="text-emerald-400 font-bold">{{ match.best_ev|upper }}</span>
-      {% if match.best_ev_value %}<span class="text-[#4b5563]">({{ "%.3f"|format(match.best_ev_value) }})</span>{% endif %}
-    </span>
-    {% endif %}
   </div>
 </div>

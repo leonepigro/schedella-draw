@@ -172,7 +172,7 @@ async def configura_submit(
                 None,
                 avg_odds,
                 None,
-                match["best_ev"],
+                match.get("best_ev"),
                 pos,
             )
 

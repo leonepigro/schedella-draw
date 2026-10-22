@@ -19,9 +19,9 @@ from src.schedella import (
     probs_from_row,
     raw_odds_from_row,
     sample_pronostic,
-    best_pronostic,
     best_by_ev,
-    best_by_odds,
+    best_by_market_prob,
+    best_by_raw_odds,
     filter_by_datetime,
     mandatory_rows,
     non_mandatory_rows,
@@ -102,9 +102,8 @@ def get_excel_preview(excel_bytes: bytes, filename: str = "upload.xlsx", max_row
 
 def _row_to_match_dict(row, probs, raw_odds):
     """Convert a DataFrame row + pre-computed probs/odds into the API match dict."""
-    ev_pron, ev_val = best_by_ev(probs)
-    prob_pron, prob_val = best_pronostic(probs)
-    odds_pron, odds_val = best_by_odds(probs)
+    prob_pron, prob_val = best_by_market_prob(probs)
+    odds_pron, odds_val = best_by_raw_odds(raw_odds)
 
     available_pronostici = []
     for i, pron in enumerate(PRONOSTICI):
@@ -121,12 +120,10 @@ def _row_to_match_dict(row, probs, raw_odds):
         "probs": [float(p) for p in probs],
         "raw_odds": [None if (isinstance(ro, float) and ro != ro) else float(ro) for ro in raw_odds],
         "available_pronostici": available_pronostici,
-        "best_ev": ev_pron,
-        "best_ev_value": float(ev_val),
         "best_prob": prob_pron,
-        "best_prob_value": float(prob_val),
+        "best_prob_value": prob_val,
         "best_odds": odds_pron,
-        "best_odds_value": float(odds_val),
+        "best_odds_value": odds_val,
     }
 
 
@@ -226,8 +223,8 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
                             "probs": list[float],        # length 7
                             "raw_odds": list[float],     # length 7
                             "available_pronostici": [...],
-                            "best_ev": str,
-                            "best_prob": str,
+                            "best_prob": str | None,   # within-market most likely
+                            "best_odds": str | None,   # highest real bookmaker odds
                             ...
                         }
                     ]

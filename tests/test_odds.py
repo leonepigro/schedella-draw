@@ -123,3 +123,20 @@ def test_odds_preview_surfaces_api_error():
         out = get_odds_preview(["Napoli - Roma"], "k")
     assert "quota" in out["error"]
     assert out["remaining"] == "0"
+
+
+def test_best_by_market_prob_uses_within_market_share():
+    raw = schedella.np.array([2.83, 3.45, 2.56, 1.97, 1.92, 1.69, 2.23])
+    pron, p = schedella.best_by_market_prob(schedella.probs_from_raw_odds(raw))
+    assert pron == "gol"
+    assert 0.55 < p < 0.58  # ~57% inside GG/NG, not ~19% across all 7
+
+
+def test_best_by_market_prob_none_when_uniform():
+    assert schedella.best_by_market_prob([1 / 7] * 7) == (None, None)
+
+
+def test_best_by_raw_odds_returns_real_bookmaker_odds():
+    assert schedella.best_by_raw_odds([2.83, 3.45, 2.56, 1.97, 1.92, 1.69, 2.23]) == ("X", 3.45)
+    assert schedella.best_by_raw_odds([None] * 7) == (None, None)
+    assert schedella.best_by_raw_odds([float("nan")] * 7) == (None, None)

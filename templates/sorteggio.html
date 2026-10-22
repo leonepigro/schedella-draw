@@ -55,7 +55,7 @@
         </div>
 
         <!-- Stats row: always visible -->
-        {% if match.best_prob or match.best_odds or match.best_ev %}
+        {% if match.best_prob or match.best_odds %}
         <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs border-t border-[#2d2410] pt-2">
           {% if match.best_prob %}
           <span class="text-[#78716c]">Best Prob:
@@ -70,14 +70,6 @@
             <span class="text-[#f59e0b] font-bold">{{ match.best_odds|upper }}</span>
             {% if match.best_odds_value %}
             <span class="text-[#4b5563]">({{ "%.2f"|format(match.best_odds_value) }}x)</span>
-            {% endif %}
-          </span>
-          {% endif %}
-          {% if match.best_ev %}
-          <span class="text-[#78716c]">Best EV:
-            <span class="text-emerald-400 font-bold">{{ match.best_ev|upper }}</span>
-            {% if match.best_ev_value %}
-            <span class="text-[#4b5563]">({{ "%.3f"|format(match.best_ev_value) }})</span>
             {% endif %}
           </span>
           {% endif %}

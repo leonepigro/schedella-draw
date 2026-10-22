@@ -33,7 +33,7 @@ def test_prepare_session_returns_matches():
     assert "match_name" in match
     assert "probs" in match
     assert "raw_odds" in match
-    assert "best_ev" in match
+    assert "best_prob" in match and "best_odds" in match
     assert len(match["probs"]) == 7
 
 

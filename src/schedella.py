@@ -8,6 +8,8 @@ from pathlib import Path
 from tabulate import tabulate
 
 PRONOSTICI = ['1', 'X', '2', 'under', 'over', 'gol', 'no gol']
+# Index groups of PRONOSTICI that form one betting market each: 1X2, Under/Over, Gol/No gol
+PRONOSTICI_MARKETS = [(0, 1, 2), (3, 4), (5, 6)]
 DATE_COLUMNS = ['Data', 'Date', 'DATE']
 MATCH_COLUMNS = ['Partita', 'Match', 'Home']
 DEFAULT_COS_COLUMNS = ['COS', 'Cos', 'cos']
@@ -466,6 +468,37 @@ def sample_pronostic(probs, rng):
 def best_pronostic(probs):
     idx = int(np.nanargmax(probs))
     return PRONOSTICI[idx], float(probs[idx])
+
+
+def market_probs(probs):
+    """Renormalise probs within each market (1X2, U/O, GG/NG), so each reads as that market's real chance."""
+    probs = np.asarray(probs, dtype=float)
+    out = np.full(len(PRONOSTICI), np.nan)
+    for idxs in PRONOSTICI_MARKETS:
+        group = probs[list(idxs)]
+        total = group.sum()
+        if total > 0:
+            out[list(idxs)] = group / total
+    return out
+
+
+def best_by_market_prob(probs):
+    """Most likely pronostico by within-market probability; (None, None) when probs carry no information."""
+    probs = np.asarray(probs, dtype=float)
+    if np.allclose(probs, 1.0 / len(PRONOSTICI)):
+        return None, None
+    mp = market_probs(probs)
+    idx = int(np.nanargmax(mp))
+    return PRONOSTICI[idx], float(mp[idx])
+
+
+def best_by_raw_odds(raw_odds):
+    """Highest real bookmaker odds; (None, None) when no odds are available."""
+    raw = np.asarray([np.nan if v is None else v for v in raw_odds], dtype=float)
+    if not np.any(np.isfinite(raw)):
+        return None, None
+    idx = int(np.nanargmax(raw))
+    return PRONOSTICI[idx], float(raw[idx])
 
 
 def best_by_odds(probs):
