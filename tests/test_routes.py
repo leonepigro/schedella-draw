@@ -105,3 +105,21 @@ def test_save_result(client):
                     data={"outcome": "won", "actual_multiplier": "12.5", "stake": "5"},
                     headers={"HX-Request": "true"})
     assert r.status_code == 200
+
+def test_nuova_default_excel_button_and_upload(client, tmp_path, monkeypatch):
+    import app.main as amain
+    path = tmp_path / "Schedella2627.xlsx"
+    path.write_bytes(_excel_bytes())
+    monkeypatch.setattr(amain, "DEFAULT_EXCEL_PATH", str(path))
+    assert "Usa Schedella2627.xlsx" in client.get("/nuova").text
+    r = client.post("/nuova/default", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/configura/" in r.headers["location"]
+    assert client.get(r.headers["location"]).status_code == 200
+
+def test_nuova_default_excel_missing(client, tmp_path, monkeypatch):
+    import app.main as amain
+    monkeypatch.setattr(amain, "DEFAULT_EXCEL_PATH", str(tmp_path / "missing.xlsx"))
+    assert "/nuova/default" not in client.get("/nuova").text
+    r = client.post("/nuova/default", follow_redirects=False)
+    assert r.headers["location"] == "/nuova"

@@ -12,6 +12,14 @@ from app import db as database
 from app import service
 
 DB_PATH = os.environ.get("DB_PATH", "/data/schedella.db" if os.path.isdir("/data") else "data/schedella.db")
+# Local convenience: weekly schedule offered on /nuova without browsing for it. Absent on Railway, so no button there.
+DEFAULT_EXCEL_PATH = os.environ.get(
+    "DEFAULT_EXCEL_PATH", os.path.join(os.path.expanduser("~"), "Downloads", "Schedella2627.xlsx")
+)
+
+
+def _default_excel_path():
+    return DEFAULT_EXCEL_PATH if os.path.isfile(DEFAULT_EXCEL_PATH) else None
 
 
 @asynccontextmanager
@@ -40,13 +48,27 @@ async def dashboard(request: Request):
 
 @app.get("/nuova", response_class=HTMLResponse)
 async def nuova_form(request: Request):
-    return templates.TemplateResponse(request, "nuova.html", {})
+    default_path = _default_excel_path()
+    return templates.TemplateResponse(request, "nuova.html", {
+        "default_excel": os.path.basename(default_path) if default_path else None,
+    })
 
 
 @app.post("/nuova")
 async def nuova_upload(request: Request, excel_file: UploadFile = File(...)):
     excel_bytes = await excel_file.read()
     session_id = database.create_upload_session(DB_PATH, excel_file.filename, excel_bytes)
+    return RedirectResponse(f"/configura/{session_id}", status_code=303)
+
+
+@app.post("/nuova/default")
+async def nuova_default():
+    default_path = _default_excel_path()
+    if not default_path:
+        return RedirectResponse("/nuova", status_code=303)
+    with open(default_path, "rb") as f:
+        excel_bytes = f.read()
+    session_id = database.create_upload_session(DB_PATH, os.path.basename(default_path), excel_bytes)
     return RedirectResponse(f"/configura/{session_id}", status_code=303)
 
 
