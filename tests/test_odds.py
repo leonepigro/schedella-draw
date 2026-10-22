@@ -85,7 +85,7 @@ def test_milan_alias_does_not_match_inter():
 def test_unknown_match_returns_none():
     with patch.object(schedella.requests, "get", side_effect=_fake_get):
         found = schedella.lookup_theodds_match("Bologna - Pisa", "k")
-    assert found == {"raw": None, "event": None}
+    assert found == {"raw": None, "event": None, "event_id": None}
 
 
 def test_probs_from_raw_odds_not_uniform():
@@ -140,3 +140,38 @@ def test_best_by_raw_odds_returns_real_bookmaker_odds():
     assert schedella.best_by_raw_odds([2.83, 3.45, 2.56, 1.97, 1.92, 1.69, 2.23]) == ("X", 3.45)
     assert schedella.best_by_raw_odds([None] * 7) == (None, None)
     assert schedella.best_by_raw_odds([float("nan")] * 7) == (None, None)
+
+
+from app.db import init_db
+
+
+def test_lookup_returns_event_id():
+    with patch.object(schedella.requests, "get", side_effect=_fake_get):
+        assert schedella.lookup_theodds_match("Napoli - Roma", "k")["event_id"] == "ev1"
+
+
+def test_force_bypasses_match_cache():
+    with patch.object(schedella.requests, "get", side_effect=_fake_get) as get:
+        schedella.lookup_theodds_match("Napoli - Roma", "k")
+        calls = get.call_count
+        schedella.lookup_theodds_match("Napoli - Roma", "k", force=True)
+    assert get.call_count == calls + 1  # only the event odds call; sports/events stay cached
+
+
+def test_odds_preview_first_odds_and_snapshot_not_duplicated(tmp_path):
+    import sqlite3
+    db = str(tmp_path / "t.db")
+    init_db(db)
+    with patch.object(schedella.requests, "get", side_effect=_fake_get):
+        out1 = get_odds_preview(["Napoli - Roma"], "k", db)
+        out2 = get_odds_preview(["Napoli - Roma"], "k", db, force=True)
+    assert out1["results"][0]["first_odds"][0] == 2.83
+    assert out2["results"][0]["first_at"]
+    count = sqlite3.connect(db).execute("SELECT COUNT(*) FROM odds_snapshot").fetchone()[0]
+    assert count == 1  # same odds twice -> one snapshot
+
+
+def test_odds_preview_without_db_has_no_first_odds():
+    with patch.object(schedella.requests, "get", side_effect=_fake_get):
+        out = get_odds_preview(["Napoli - Roma"], "k")
+    assert out["results"][0]["first_odds"] is None

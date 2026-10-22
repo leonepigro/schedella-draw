@@ -61,6 +61,14 @@ def init_db(path: str = DB_PATH) -> None:
                 profit            REAL,
                 resolved_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE IF NOT EXISTS odds_snapshot (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id    TEXT NOT NULL,
+                event_name  TEXT NOT NULL,
+                fetched_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                odds_json   TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_odds_snapshot_event ON odds_snapshot(event_id, id);
         """)
         # Migrations
         sched_cols = {row[1] for row in con.execute("PRAGMA table_info(schedella)").fetchall()}
@@ -309,3 +317,28 @@ def update_session_matches(path: str, session_id: int, session_data: dict) -> No
             "UPDATE session SET params_json=? WHERE id=?",
             (json.dumps(params), session_id)
         )
+
+
+def add_odds_snapshot(path: str, event_id: str, event_name: str, odds: list) -> bool:
+    """Store odds for an event unless identical to its latest snapshot. Returns True if a row was inserted."""
+    payload = json.dumps(odds)
+    with get_connection(path) as con:
+        last = con.execute(
+            "SELECT odds_json FROM odds_snapshot WHERE event_id=? ORDER BY id DESC LIMIT 1", (event_id,)
+        ).fetchone()
+        if last and last["odds_json"] == payload:
+            return False
+        con.execute(
+            "INSERT INTO odds_snapshot (event_id, event_name, odds_json) VALUES (?,?,?)",
+            (event_id, event_name, payload),
+        )
+        return True
+
+
+def get_first_odds_snapshot(path: str, event_id: str) -> Optional[dict]:
+    with get_connection(path) as con:
+        row = con.execute(
+            "SELECT odds_json, fetched_at FROM odds_snapshot WHERE event_id=? ORDER BY id ASC LIMIT 1",
+            (event_id,),
+        ).fetchone()
+    return {"odds": json.loads(row["odds_json"]), "fetched_at": row["fetched_at"]} if row else None

@@ -398,20 +398,22 @@ def _best_bookmaker_raw_odds(bookmakers, home, away, debug=False):
     return raw
 
 
-def lookup_theodds_match(match, api_key, debug=False):
+def lookup_theodds_match(match, api_key, debug=False, force=False):
     """Resolve a 'Home - Away' match on TheOddsAPI.
 
-    Returns {'raw': np.ndarray of 7 decimal odds (NaN where missing) | None, 'event': 'Home - Away' | None}.
-    'event' is the API's own name for the matched event, so the caller can show what was matched.
-    Raises TheOddsError on API failures; results (found or not) are cached for ODDS_CACHE_TTL_SECONDS.
+    Returns {'raw': np.ndarray of 7 decimal odds (NaN where missing) | None, 'event': 'Home - Away' | None,
+    'event_id': str | None}. 'event' is the API's own name for the matched event, so the caller can show
+    what was matched. Raises TheOddsError on API failures; results (found or not) are cached for
+    ODDS_CACHE_TTL_SECONDS. force=True skips the cached result for this match (sports/events stay cached).
     """
     match = str(match or '').strip()
     cache_key = ('match', api_key, match)
-    found, cached = _cache_get(cache_key)
-    if found:
-        return cached
+    if not force:
+        found, cached = _cache_get(cache_key)
+        if found:
+            return cached
 
-    result = {'raw': None, 'event': None}
+    result = {'raw': None, 'event': None, 'event_id': None}
     if ' - ' in match:
         home, away = [p.strip().lower() for p in match.split(' - ', 1)]
         sport_keys = resolve_theodds_sport_keys(api_key, debug=debug)
@@ -422,6 +424,7 @@ def lookup_theodds_match(match, api_key, debug=False):
             ev_home = (ev.get('home_team') or '').strip()
             ev_away = (ev.get('away_team') or '').strip()
             result['event'] = f'{ev_home} - {ev_away}'
+            result['event_id'] = ev.get('id')
             event_odds = fetch_theodds_event_odds(ev.get('id'), sport_key, api_key, debug=debug)
             result['raw'] = _best_bookmaker_raw_odds(
                 event_odds.get('bookmakers', []), ev_home.lower(), ev_away.lower(), debug=debug,

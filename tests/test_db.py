@@ -49,3 +49,15 @@ def test_get_stats_empty(db_path):
     assert stats["total"] == 0
     assert stats["win_rate"] == 0.0
     assert stats["roi"] == 0.0
+
+
+from app.db import add_odds_snapshot, get_first_odds_snapshot
+
+
+def test_snapshot_first_and_dedup(db_path):
+    assert get_first_odds_snapshot(db_path, "ev1") is None
+    assert add_odds_snapshot(db_path, "ev1", "Napoli - AS Roma", [2.95, 3.4, 2.5, None, None, None, None])
+    assert not add_odds_snapshot(db_path, "ev1", "Napoli - AS Roma", [2.95, 3.4, 2.5, None, None, None, None])
+    assert add_odds_snapshot(db_path, "ev1", "Napoli - AS Roma", [2.83, 3.45, 2.56, None, None, None, None])
+    first = get_first_odds_snapshot(db_path, "ev1")
+    assert first["odds"][0] == 2.95 and first["fetched_at"]

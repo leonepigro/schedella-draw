@@ -32,14 +32,17 @@ from src.schedella import (
     TheOddsError,
 )
 from src.form_data import match_form, FootballDataError
+from app import db as database
 
 
-def get_odds_preview(match_names: list, api_key: str = None) -> dict:
+def get_odds_preview(match_names: list, api_key: str = None, db_path: str = None, force: bool = False) -> dict:
     """
     Look up TheOddsAPI odds for each match name, for display right after the Excel upload.
 
-    Returns {"results": [{"name", "event", "odds"}], "remaining": str | None, "error": str | None}.
+    Returns {"results": [{"name", "event", "odds", "first_odds", "first_at"}], "remaining", "error"}.
     "odds" is a list of 7 decimal odds (None where missing) or None if the match was not found.
+    With db_path, each lookup is stored as a snapshot and "first_odds"/"first_at" give the first one seen,
+    so the page can show how odds moved. force=True re-reads odds from the API (costs credits).
     On an API error, lookup stops and "error" carries the message (it would be the same for every match).
     """
     api_key = api_key or os.environ.get("THEODDSAPI_KEY")
@@ -49,14 +52,21 @@ def get_odds_preview(match_names: list, api_key: str = None) -> dict:
     results = []
     for name in match_names:
         try:
-            found = lookup_theodds_match(name, api_key)
+            found = lookup_theodds_match(name, api_key, force=force)
         except TheOddsError as exc:
             return {"results": results, "remaining": theodds_remaining_credits(api_key), "error": str(exc)}
         raw = found["raw"]
+        odds = None if raw is None else [None if math.isnan(v) else float(v) for v in raw]
+        first = None
+        if db_path and odds is not None and found.get("event_id"):
+            database.add_odds_snapshot(db_path, found["event_id"], found["event"], odds)
+            first = database.get_first_odds_snapshot(db_path, found["event_id"])
         results.append({
             "name": name,
             "event": found["event"],
-            "odds": None if raw is None else [None if math.isnan(v) else float(v) for v in raw],
+            "odds": odds,
+            "first_odds": first["odds"] if first else None,
+            "first_at": first["fetched_at"] if first else None,
         })
     return {"results": results, "remaining": theodds_remaining_credits(api_key), "error": None}
 
