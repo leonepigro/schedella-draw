@@ -123,3 +123,10 @@ def test_nuova_default_excel_missing(client, tmp_path, monkeypatch):
     assert "/nuova/default" not in client.get("/nuova").text
     r = client.post("/nuova/default", follow_redirects=False)
     assert r.headers["location"] == "/nuova"
+
+
+def test_api_form_without_key(client, monkeypatch):
+    monkeypatch.delenv("FOOTBALLDATA_KEY", raising=False)
+    r = client.post("/api/form", json={"matches": ["Napoli - Roma"]})
+    assert r.status_code == 200
+    assert r.json()["error"]

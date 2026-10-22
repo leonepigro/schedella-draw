@@ -99,6 +99,16 @@ def odds_preview(body: OddsPreviewRequest):
     return service.get_odds_preview(body.matches, body.key or None)
 
 
+class FormPreviewRequest(BaseModel):
+    matches: list[str]
+
+
+@app.post("/api/form")
+def form_preview(body: FormPreviewRequest):
+    # Sync handler: football-data calls block, FastAPI runs this in its threadpool.
+    return service.get_form_preview(body.matches)
+
+
 @app.post("/configura/{session_id}")
 async def configura_submit(
     request: Request,

@@ -123,3 +123,43 @@ def test_api_error_raises_with_message():
                       return_value=_resp({"message": "restricted resource"}, status=403)):
         with pytest.raises(form_data.FootballDataError, match="403.*restricted"):
             form_data.fetch_standings("k")
+
+
+from app import service
+
+
+def test_form_preview_without_key(monkeypatch):
+    monkeypatch.delenv("FOOTBALLDATA_KEY", raising=False)
+    out = service.get_form_preview(["Napoli - Roma"])
+    assert out["results"] == [] and "FOOTBALLDATA_KEY" in out["error"]
+
+
+def test_form_preview_results():
+    with patch.object(form_data.requests, "get", side_effect=_fake_get):
+        out = service.get_form_preview(["Napoli - Roma", "Napoli - Pisa"], "k")
+    assert out["error"] is None
+    assert out["results"][0]["name"] == "Napoli - Roma"
+    assert out["results"][0]["away"]["name"] == "Roma"
+    assert out["results"][1]["away"] is None
+
+
+def test_form_preview_surfaces_error():
+    with patch.object(form_data.requests, "get", return_value=_resp({"message": "bad token"}, status=400)):
+        out = service.get_form_preview(["Napoli - Roma"], "k")
+    assert "bad token" in out["error"]
+
+
+def test_prepare_session_without_form_key(monkeypatch):
+    from tests.test_service import _make_excel_bytes
+    monkeypatch.delenv("FOOTBALLDATA_KEY", raising=False)
+    result = service.prepare_session(_make_excel_bytes(), "t.xlsx", {"per_player": 2, "players": 1})
+    assert all(m["form"] is None for m in result["players"][0]["matches"])
+
+
+def test_prepare_session_with_form(monkeypatch):
+    from tests.test_service import _make_excel_bytes
+    monkeypatch.setenv("FOOTBALLDATA_KEY", "k")
+    with patch.object(form_data.requests, "get", side_effect=_fake_get):
+        result = service.prepare_session(_make_excel_bytes(), "t.xlsx", {"per_player": 3, "players": 1})
+    forms = [m["form"] for m in result["players"][0]["matches"]]
+    assert all(set(f) == {"home", "away"} for f in forms)

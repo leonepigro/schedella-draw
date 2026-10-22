@@ -31,6 +31,7 @@ from src.schedella import (
     theodds_remaining_credits,
     TheOddsError,
 )
+from src.form_data import match_form, FootballDataError
 
 
 def get_odds_preview(match_names: list, api_key: str = None) -> dict:
@@ -98,6 +99,36 @@ def get_excel_preview(excel_bytes: bytes, filename: str = "upload.xlsx", max_row
         pass
 
     return {"all_columns": all_cols, "dropdown_columns": dropdown_cols, "rows": rows, "matches": matches}
+
+
+def get_form_preview(match_names: list, api_key: str = None) -> dict:
+    """
+    Team form (football-data.org) for each match name, shown on configura next to the odds.
+
+    Returns {"results": [{"name", "home", "away"}], "error": str | None}; on an API error lookup stops.
+    """
+    api_key = api_key or os.environ.get("FOOTBALLDATA_KEY")
+    if not api_key:
+        return {"results": [], "error": "Imposta FOOTBALLDATA_KEY per vedere la forma delle squadre."}
+
+    results = []
+    for name in match_names:
+        try:
+            form = match_form(name, api_key)
+        except FootballDataError as exc:
+            return {"results": results, "error": str(exc)}
+        results.append({"name": name, **form})
+    return {"results": results, "error": None}
+
+
+def _form_or_none(match_name: str, api_key: str):
+    """Form saved with a drawn session; missing key or API failure must not block the draw."""
+    if not api_key:
+        return None
+    try:
+        return match_form(match_name, api_key)
+    except FootballDataError:
+        return None
 
 
 def _row_to_match_dict(row, probs, raw_odds):
@@ -269,6 +300,7 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
     seed = params.get("seed")
     use_odds = params.get("use_odds", False)
     theodds_key = params.get("theodds_key")
+    form_key = os.environ.get("FOOTBALLDATA_KEY")
 
     rng = np.random.default_rng(seed)
 
@@ -280,13 +312,16 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
         for _, row in selected.iterrows():
             probs = probs_from_row(row, use_odds=use_odds, theodds_key=theodds_key)
             raw_odds = raw_odds_from_row(row, use_odds=use_odds, theodds_key=theodds_key)
-            matches_out.append(_row_to_match_dict(row, probs, raw_odds))
+            m = _row_to_match_dict(row, probs, raw_odds)
+            m["form"] = _form_or_none(m["match_name"], form_key)
+            matches_out.append(m)
 
         if extras is not None:
             for _, row in extras.iterrows():
                 probs = probs_from_row(row, use_odds=use_odds, theodds_key=theodds_key)
                 raw_odds = raw_odds_from_row(row, use_odds=use_odds, theodds_key=theodds_key)
                 m = _row_to_match_dict(row, probs, raw_odds)
+                m["form"] = _form_or_none(m["match_name"], form_key)
                 m["extra"] = True
                 matches_out.append(m)
 
