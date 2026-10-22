@@ -1,0 +1,16 @@
+{% if match.form %}
+<div class="text-[11px] text-[#a8a29e] font-mono space-y-0.5 pt-1">
+  {% for f, venue in [(match.form.home, 'casa'), (match.form.away, 'trasf.')] %}
+  <div>
+    {% if f %}
+    {{ f.name }} {{ f.position }}° {{ f.points }}pt · {{ f.last5|join(' ') or '–' }}
+    {%- if f.gf_avg is not none %} · {{ venue }} GF {{ "%.1f"|format(f.gf_avg) }} GS {{ "%.1f"|format(f.gs_avg) }}{% endif %}
+    {%- if f.over25_pct is not none %} · O2.5 {{ f.over25_pct }}%{% endif %}
+    {%- if f.gg_pct is not none %} · GG {{ f.gg_pct }}%{% endif %}
+    {% else %}
+    <span class="text-[#57534e]">forma non disponibile</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

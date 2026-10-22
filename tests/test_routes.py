@@ -149,3 +149,25 @@ def test_nuova_lists_and_reopens_uploads(client):
 def test_reopen_missing_session(client):
     r = client.post("/nuova/riapri/9999", follow_redirects=False)
     assert r.headers["location"] == "/nuova"
+
+
+def test_sorteggio_shows_form_lines(client, monkeypatch):
+    from unittest.mock import patch
+    import app.service as svc
+    fake = {"home": {"name": "Milan", "position": 4, "points": 13, "played": 7, "last5": ["V", "N"],
+                     "gf_avg": 1.5, "gs_avg": 0.5, "over25_pct": 57, "gg_pct": 43},
+            "away": None}
+    monkeypatch.setenv("FOOTBALLDATA_KEY", "k")
+    with patch.object(svc, "match_form", return_value=fake):
+        sid = _create_session(client)
+    page = client.get(f"/sorteggio/{sid}").text
+    assert "Milan 4° 13pt" in page and "O2.5 57%" in page
+    assert "forma non disponibile" in page
+
+
+def test_configura_has_refresh_button(client):
+    data = _excel_bytes()
+    mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    r = client.post("/nuova", files={"excel_file": ("t.xlsx", data, mime)}, follow_redirects=False)
+    page = client.get(r.headers["location"]).text
+    assert 'id="odds-refresh"' in page and 'class="match-form' in page

@@ -169,7 +169,13 @@
     <p class="text-[#78716c] text-xs mb-3">
       Tutte selezionate di default. Deseleziona, elimina o rinomina prima di avviare.
     </p>
-    <p id="odds-status" class="text-xs mb-3 text-[#78716c]"></p>
+    <div class="flex items-center justify-between gap-3 mb-1">
+      <p id="odds-status" class="text-xs text-[#78716c]"></p>
+      <button type="button" id="odds-refresh" onclick="loadOdds(null, true)"
+              title="Rilegge le quote da TheOddsAPI (~3 crediti per partita)"
+              class="text-xs text-[#f59e0b] hover:text-[#fde68a] flex-shrink-0">&#x21BB; Aggiorna quote</button>
+    </div>
+    <p id="form-status" class="text-xs mb-3 text-[#78716c]"></p>
     <div id="match-list" class="space-y-1">
       {% for m in matches %}
       <div class="match-item flex flex-wrap items-center gap-2 bg-[#0f0d08] rounded-lg px-3 py-2"
@@ -188,6 +194,7 @@
                 class="text-[#78716c] hover:text-red-400 text-sm px-1 flex-shrink-0"
                 title="Elimina">&#x2715;</button>
         <div class="match-odds w-full pl-6 text-[11px] text-[#78716c] font-mono"></div>
+        <div class="match-form w-full pl-6 text-[11px] text-[#a8a29e] font-mono space-y-0.5"></div>
       </div>
       {% endfor %}
     </div>
@@ -297,6 +304,7 @@
     if (!el.textContent.trim()) el.textContent = el.dataset.original || el.textContent;
     updateMatchSelection();
     loadOdds([el.closest('.match-item')]);
+    loadForm([el.closest('.match-item')]);
   }
 
   function deleteMatch(item) {
@@ -317,12 +325,13 @@
 
   // ── Odds preview ───────────────────────────────────────────────────────
   const ODDS_LABELS = ['1', 'X', '2', 'U', 'O', 'GG', 'NG'];
+  const ODDS_MOVE_THRESHOLD = 0.05;
 
   function setOddsStatus(text, isError) {
     const st = document.getElementById('odds-status');
     if (!st) return;
     st.textContent = text;
-    st.className = 'text-xs mb-3 ' + (isError ? 'text-red-400' : 'text-[#78716c]');
+    st.className = 'text-xs ' + (isError ? 'text-red-400' : 'text-[#78716c]');
   }
 
   function renderOdds(item, result) {
@@ -340,6 +349,14 @@
       const v = result.odds[i];
       span.textContent = label + ' ' + (v == null ? '–' : v.toFixed(2));
       if (v != null) span.classList.add('text-[#fde68a]');
+      const first = result.first_odds ? result.first_odds[i] : null;
+      if (v != null && first != null && Math.abs(v - first) >= ODDS_MOVE_THRESHOLD) {
+        const mv = document.createElement('span');
+        mv.className = v < first ? 'text-emerald-400' : 'text-red-400';
+        mv.textContent = (v < first ? ' ↓' : ' ↑') + ' (' + first.toFixed(2) + ')';
+        mv.title = 'prima rilevazione: ' + result.first_at + ' UTC';
+        span.appendChild(mv);
+      }
       box.appendChild(span);
     });
     const ev = document.createElement('span');
@@ -348,11 +365,13 @@
     box.appendChild(ev);
   }
 
-  async function loadOdds(items) {
+  async function loadOdds(items, force) {
     const list = items || [...document.querySelectorAll('#match-list .match-item')];
     if (!list.length) return;
+    const btn = document.getElementById('odds-refresh');
+    if (btn) btn.disabled = true;
     list.forEach(it => { it.querySelector('.match-odds').textContent = '…'; });
-    setOddsStatus('Carico quote da TheOddsAPI…');
+    setOddsStatus(force ? 'Aggiorno quote da TheOddsAPI…' : 'Carico quote da TheOddsAPI…');
     try {
       const resp = await fetch('/api/odds', {
         method: 'POST',
@@ -360,6 +379,7 @@
         body: JSON.stringify({
           key: document.getElementById('theodds-key')?.value.trim() || null,
           matches: list.map(it => it.querySelector('.match-name').textContent.trim()),
+          force: !!force,
         }),
       });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -377,6 +397,58 @@
     } catch (e) {
       list.forEach(it => { it.querySelector('.match-odds').textContent = ''; });
       setOddsStatus('Errore caricamento quote: ' + e.message, true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function setFormStatus(text, isError) {
+    const st = document.getElementById('form-status');
+    if (!st) return;
+    st.textContent = text;
+    st.className = 'text-xs mb-3 ' + (isError ? 'text-red-400' : 'text-[#78716c]');
+  }
+
+  function formLine(f, venue) {
+    const parts = [f.name + ' ' + f.position + '° ' + f.points + 'pt', f.last5.join(' ') || '–'];
+    if (f.gf_avg != null) parts.push(venue + ' GF ' + f.gf_avg.toFixed(1) + ' GS ' + f.gs_avg.toFixed(1));
+    if (f.over25_pct != null) parts.push('O2.5 ' + f.over25_pct + '%');
+    if (f.gg_pct != null) parts.push('GG ' + f.gg_pct + '%');
+    return parts.join(' · ');
+  }
+
+  function renderForm(item, result) {
+    const box = item.querySelector('.match-form');
+    box.replaceChildren();
+    [[result.home, 'casa'], [result.away, 'trasf.']].forEach(([f, venue]) => {
+      const line = document.createElement('div');
+      if (f) {
+        line.textContent = formLine(f, venue);
+      } else {
+        line.className = 'text-[#57534e]';
+        line.textContent = 'forma non disponibile';
+      }
+      box.appendChild(line);
+    });
+  }
+
+  async function loadForm(items) {
+    const list = items || [...document.querySelectorAll('#match-list .match-item')];
+    if (!list.length) return;
+    setFormStatus('Carico forma squadre da football-data…');
+    try {
+      const resp = await fetch('/api/form', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({matches: list.map(it => it.querySelector('.match-name').textContent.trim())}),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      data.results.forEach((r, i) => renderForm(list[i], r));
+      list.slice(data.results.length).forEach(it => it.querySelector('.match-form').replaceChildren());
+      setFormStatus(data.error || '', !!data.error);
+    } catch (e) {
+      setFormStatus('Errore caricamento forma: ' + e.message, true);
     }
   }
 
@@ -393,5 +465,6 @@
     });
   }
   loadOdds();
+  loadForm();
 </script>
 {% endblock %}
