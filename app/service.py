@@ -27,7 +27,37 @@ from src.schedella import (
     non_mandatory_rows,
     draw_matches,
     format_date,
+    lookup_theodds_match,
+    theodds_remaining_credits,
+    TheOddsError,
 )
+
+
+def get_odds_preview(match_names: list, api_key: str = None) -> dict:
+    """
+    Look up TheOddsAPI odds for each match name, for display right after the Excel upload.
+
+    Returns {"results": [{"name", "event", "odds"}], "remaining": str | None, "error": str | None}.
+    "odds" is a list of 7 decimal odds (None where missing) or None if the match was not found.
+    On an API error, lookup stops and "error" carries the message (it would be the same for every match).
+    """
+    api_key = api_key or os.environ.get("THEODDSAPI_KEY")
+    if not api_key:
+        return {"results": [], "remaining": None, "error": "Inserisci la API key TheOddsAPI per vedere le quote."}
+
+    results = []
+    for name in match_names:
+        try:
+            found = lookup_theodds_match(name, api_key)
+        except TheOddsError as exc:
+            return {"results": results, "remaining": theodds_remaining_credits(api_key), "error": str(exc)}
+        raw = found["raw"]
+        results.append({
+            "name": name,
+            "event": found["event"],
+            "odds": None if raw is None else [None if math.isnan(v) else float(v) for v in raw],
+        })
+    return {"results": results, "remaining": theodds_remaining_credits(api_key), "error": None}
 
 
 def get_excel_preview(excel_bytes: bytes, filename: str = "upload.xlsx", max_rows: int = 10) -> dict:

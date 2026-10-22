@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import requests
 import os
+import time
 from pathlib import Path
 from tabulate import tabulate
 
@@ -12,10 +13,24 @@ MATCH_COLUMNS = ['Partita', 'Match', 'Home']
 DEFAULT_COS_COLUMNS = ['COS', 'Cos', 'cos']
 ODDS_SUFFIXES = ['_1', '_X', '_2', '_under', '_over', '_gol', '_no_gol']
 PREFERRED_THEODDS_SPORT_KEYS = ['soccer_italy_serie_a', 'soccer_italy', 'soccer_italy_serie_b']
+THEODDS_BASE_URL = 'https://api.the-odds-api.com/v4'
+THEODDS_TIMEOUT_SECONDS = 10
+THEODDS_REGIONS = 'eu'
+THEODDS_MARKETS = 'h2h,totals,btts'
+# Odds barely move between upload and draw; long enough to reuse preview lookups, short enough to refresh per matchday.
+ODDS_CACHE_TTL_SECONDS = 30 * 60
+# Excel short names whose plain substring match against TheOddsAPI names fails or is ambiguous
+# (e.g. 'milan' would also match 'inter milan').
+THEODDS_TEAM_ALIASES = {
+    'milan': 'ac milan',
+    'inter': 'inter milan',
+    'roma': 'as roma',
+    'atalanta': 'atalanta bc',
+    'verona': 'hellas verona',
+}
 
-_THEODDS_SPORT_KEY_CACHE = {}
-_THEODDS_EVENTS_CACHE = {}
-_THEODDS_RAW_ODDS_CACHE = {}
+_THEODDS_CACHE = {}
+_THEODDS_REMAINING = {}
 
 
 def find_column(columns, names):
@@ -114,85 +129,93 @@ def parse_theodds_market(m, home, away, debug=False):
     return None, None
 
 
-def resolve_theodds_sport_key(api_key, debug=False):
-    if api_key in _THEODDS_SPORT_KEY_CACHE:
-        return _THEODDS_SPORT_KEY_CACHE[api_key]
+class TheOddsError(Exception):
+    """TheOddsAPI returned an error (invalid key, credits exhausted, HTTP failure)."""
 
-    base = 'https://api.the-odds-api.com/v4'
-    resp = requests.get(f"{base}/sports", params={'apiKey': api_key}, timeout=10)
-    resp.raise_for_status()
-    sports = resp.json()
+
+def _cache_get(key):
+    hit = _THEODDS_CACHE.get(key)
+    if hit is not None and time.monotonic() - hit[0] < ODDS_CACHE_TTL_SECONDS:
+        return True, hit[1]
+    return False, None
+
+
+def _cache_set(key, value):
+    _THEODDS_CACHE[key] = (time.monotonic(), value)
+    return value
+
+
+def theodds_remaining_credits(api_key):
+    """Credits left for api_key, as reported by the last TheOddsAPI response (None if unknown)."""
+    return _THEODDS_REMAINING.get(api_key)
+
+
+def theodds_get(path, api_key, debug=False, **params):
+    try:
+        resp = requests.get(f'{THEODDS_BASE_URL}{path}', params={'apiKey': api_key, **params},
+                            timeout=THEODDS_TIMEOUT_SECONDS)
+    except requests.RequestException as exc:
+        raise TheOddsError(f'TheOddsAPI non raggiungibile: {exc}') from exc
+
+    remaining = resp.headers.get('x-requests-remaining')
+    if remaining is not None:
+        _THEODDS_REMAINING[api_key] = remaining
+    if not resp.ok:
+        try:
+            message = resp.json().get('message', '')
+        except ValueError:
+            message = resp.text[:200]
+        raise TheOddsError(f'TheOddsAPI HTTP {resp.status_code}: {message}')
+
+    data = resp.json()
     if debug:
-        print('TheOddsAPI /sports response:')
-        print(sports)
+        print(f'TheOddsAPI {path} response:')
+        print(data)
+    return data
 
-    sport_key = None
-    sport_keys = [s.get('key', '') for s in sports]
-    for preferred in PREFERRED_THEODDS_SPORT_KEYS:
-        if preferred in sport_keys:
-            sport_key = preferred
-            break
-    if not sport_key:
-        for s in sports:
-            k = s.get('key', '')
-            if 'soccer' in k or 'football' in k:
-                sport_key = k
-                break
 
-    _THEODDS_SPORT_KEY_CACHE[api_key] = sport_key
-    return sport_key
+def resolve_theodds_sport_keys(api_key, debug=False):
+    found, cached = _cache_get(('sports', api_key))
+    if found:
+        return cached
+
+    active = [s.get('key', '') for s in theodds_get('/sports', api_key, debug=debug)]
+    sport_keys = [k for k in PREFERRED_THEODDS_SPORT_KEYS if k in active]
+    if not sport_keys:
+        sport_keys = [k for k in active if 'soccer' in k or 'football' in k][:1]
+    return _cache_set(('sports', api_key), sport_keys)
 
 
 def get_theodds_events(sport_key, api_key, debug=False):
-    cache_key = (api_key, sport_key)
-    if cache_key in _THEODDS_EVENTS_CACHE:
-        return _THEODDS_EVENTS_CACHE[cache_key]
-
-    base = 'https://api.the-odds-api.com/v4'
-    params = {'apiKey': api_key, 'dateFormat': 'iso'}
-    resp = requests.get(f"{base}/sports/{sport_key}/events", params=params, timeout=10)
-    resp.raise_for_status()
-    events = resp.json()
-    if debug:
-        print(f'TheOddsAPI /sports/{sport_key}/events response ({len(events)} events):')
-        print(events)
-
-    _THEODDS_EVENTS_CACHE[cache_key] = events
-    return events
+    cache_key = ('events', api_key, sport_key)
+    found, cached = _cache_get(cache_key)
+    if found:
+        return cached
+    events = theodds_get(f'/sports/{sport_key}/events', api_key, debug=debug, dateFormat='iso')
+    return _cache_set(cache_key, events)
 
 
-def find_theodds_event_id(home, away, sport_key, api_key, debug=False):
-    events = get_theodds_events(sport_key, api_key, debug=debug)
-    def normalize(s):
-        return (s or '').strip().lower()
+def _team_matches(name, api_name):
+    name = THEODDS_TEAM_ALIASES.get(name, name)
+    return name == api_name or name in api_name or api_name in name
 
-    home_norm = normalize(home)
-    away_norm = normalize(away)
 
-    for ev in events:
-        h = normalize(ev.get('home_team'))
-        a = normalize(ev.get('away_team'))
-        if (home_norm in h and away_norm in a) or (home_norm in a and away_norm in h) or (home_norm == h and away_norm == a):
-            return ev.get('id')
-    return None
+def find_theodds_event(home, away, sport_keys, api_key, debug=False):
+    """Return (sport_key, event) for the first event whose teams match home/away, else (None, None)."""
+    for sport_key in sport_keys:
+        for ev in get_theodds_events(sport_key, api_key, debug=debug):
+            h = (ev.get('home_team') or '').strip().lower()
+            a = (ev.get('away_team') or '').strip().lower()
+            if _team_matches(home, h) and _team_matches(away, a):
+                return sport_key, ev
+    return None, None
 
 
 def fetch_theodds_event_odds(event_id, sport_key, api_key, debug=False):
-    base = 'https://api.the-odds-api.com/v4'
-    params = {
-        'apiKey': api_key,
-        'regions': 'eu',
-        'markets': 'h2h,totals,btts',
-        'oddsFormat': 'decimal',
-        'dateFormat': 'iso',
-    }
-    resp = requests.get(f"{base}/sports/{sport_key}/events/{event_id}/odds", params=params, timeout=10)
-    resp.raise_for_status()
-    event_odds = resp.json()
-    if debug:
-        print(f'TheOddsAPI /sports/{sport_key}/events/{event_id}/odds response:')
-        print(event_odds)
-    return event_odds
+    return theodds_get(
+        f'/sports/{sport_key}/events/{event_id}/odds', api_key, debug=debug,
+        regions=THEODDS_REGIONS, markets=THEODDS_MARKETS, oddsFormat='decimal', dateFormat='iso',
+    )
 
 
 def read_schedule(path, cos_column=None):
@@ -288,14 +311,14 @@ def probs_from_row(row, use_odds=False, theodds_key=None, debug_odds=False):
         # Fallback: try TheOddsAPI if API key present
         key = theodds_key or os.environ.get('THEODDSAPI_KEY')
         if key:
+            # Errors are surfaced by the configura odds preview; the draw falls back to uniform probs.
             try:
-                p = probs_from_theodds(row, key, debug_odds=debug_odds)
+                p = probs_from_raw_odds(lookup_theodds_match(row.get('match', ''), key, debug=debug_odds)['raw'])
                 if p is not None:
                     return p
-            except Exception as exc:
+            except TheOddsError as exc:
                 if debug_odds:
                     print('TheOddsAPI exception:', exc)
-                pass
 
     keys = ['prob_1', 'prob_X', 'prob_2', 'prob_under', 'prob_over', 'prob_gol', 'prob_no_gol']
     if all(k in row.index for k in keys):
@@ -325,192 +348,96 @@ def raw_odds_from_row(row, use_odds=False, theodds_key=None, debug_odds=False):
                     pass
         if np.any(np.isfinite(result)):
             return result
-    match_key = str(row.get('match', ''))
-    if match_key in _THEODDS_RAW_ODDS_CACHE:
-        return _THEODDS_RAW_ODDS_CACHE[match_key]
     api_key = theodds_key or os.environ.get('THEODDSAPI_KEY')
     if api_key:
         try:
-            probs_from_theodds(row, api_key, debug_odds=debug_odds)
-            if match_key in _THEODDS_RAW_ODDS_CACHE:
-                return _THEODDS_RAW_ODDS_CACHE[match_key]
-        except Exception:
-            pass
+            raw = lookup_theodds_match(row.get('match', ''), api_key, debug=debug_odds)['raw']
+            if raw is not None:
+                return raw.copy()
+        except TheOddsError as exc:
+            if debug_odds:
+                print('TheOddsAPI exception:', exc)
     return result
 
 
-def probs_from_theodds(row, api_key, debug_odds=False):
-    """Try to resolve 1X2 odds for the match using TheOddsAPI and return normalized probs.
+def _best_bookmaker_raw_odds(bookmakers, home, away, debug=False):
+    """Pick the bookmaker covering most markets and return its 7 decimal odds (NaN where missing)."""
+    candidate = None
+    best_score = -1
+    for bm in bookmakers:
+        h2h = totals = btts = None
+        for m in bm.get('markets', []):
+            kind, parsed = parse_theodds_market(m, home, away, debug=debug)
+            if kind == 'h2h':
+                h2h = parsed
+            elif kind == 'totals':
+                totals = parsed
+            elif kind == 'btts':
+                btts = parsed
+        score = int(h2h is not None) * 10 + int(totals is not None) * 3 + int(btts is not None) * 2
+        if score > best_score:
+            best_score = score
+            candidate = (bm, h2h, totals, btts)
+    if candidate is None:
+        return None
 
-    Strategy:
-    - Discover a soccer-related sport_key from /v4/sports
-    - Query odds for that sport and search events by team names
-    - Extract h/d/a decimal odds and convert to probabilities
+    bm, h2h, totals, btts = candidate
+    raw = np.full(len(PRONOSTICI), np.nan)
+    if h2h is not None:
+        raw[0:3] = h2h
+    if totals is not None:
+        raw[3] = totals['under']
+        raw[4] = totals['over']
+    if btts is not None:
+        raw[5] = btts['gol']
+        raw[6] = btts['no_gol']
+    if debug:
+        print('Selected bookmaker:', bm.get('key'), 'raw odds:', raw)
+    return raw
+
+
+def lookup_theodds_match(match, api_key, debug=False):
+    """Resolve a 'Home - Away' match on TheOddsAPI.
+
+    Returns {'raw': np.ndarray of 7 decimal odds (NaN where missing) | None, 'event': 'Home - Away' | None}.
+    'event' is the API's own name for the matched event, so the caller can show what was matched.
+    Raises TheOddsError on API failures; results (found or not) are cached for ODDS_CACHE_TTL_SECONDS.
     """
-    # Expect `row['match']` like 'Home - Away'
-    match = str(row.get('match', '')).strip()
-    if ' - ' not in match:
+    match = str(match or '').strip()
+    cache_key = ('match', api_key, match)
+    found, cached = _cache_get(cache_key)
+    if found:
+        return cached
+
+    result = {'raw': None, 'event': None}
+    if ' - ' in match:
+        home, away = [p.strip().lower() for p in match.split(' - ', 1)]
+        sport_keys = resolve_theodds_sport_keys(api_key, debug=debug)
+        if debug:
+            print('TheOddsAPI sport keys:', sport_keys)
+        sport_key, ev = find_theodds_event(home, away, sport_keys, api_key, debug=debug)
+        if ev is not None:
+            ev_home = (ev.get('home_team') or '').strip()
+            ev_away = (ev.get('away_team') or '').strip()
+            result['event'] = f'{ev_home} - {ev_away}'
+            event_odds = fetch_theodds_event_odds(ev.get('id'), sport_key, api_key, debug=debug)
+            result['raw'] = _best_bookmaker_raw_odds(
+                event_odds.get('bookmakers', []), ev_home.lower(), ev_away.lower(), debug=debug,
+            )
+    return _cache_set(cache_key, result)
+
+
+def probs_from_raw_odds(raw):
+    """Turn 7 decimal odds into probabilities: 1X2 normalised, other markets added as 1/odds, then all normalised."""
+    if raw is None or not np.all(np.isfinite(raw[0:3])):
         return None
-    home, away = [p.strip().lower() for p in match.split(' - ', 1)]
-
-    sport_key = resolve_theodds_sport_key(api_key, debug=debug_odds)
-    if debug_odds:
-        print('Selected TheOddsAPI sport_key:', sport_key)
-    if not sport_key:
-        return None
-
-    # 2) resolve the event and fetch odds one event at a time
-    event_id = find_theodds_event_id(home, away, sport_key, api_key, debug=debug_odds)
-    if event_id:
-        event_odds = fetch_theodds_event_odds(event_id, sport_key, api_key, debug=debug_odds)
-        if event_odds:
-            candidate = None
-            best_score = -1
-            for bm in event_odds.get('bookmakers', []):
-                h2h = None
-                totals = None
-                btts = None
-                for m in bm.get('markets', []):
-                    kind, parsed = parse_theodds_market(m, home, away, debug=debug_odds)
-                    if kind == 'h2h':
-                        h2h = parsed
-                    elif kind == 'totals':
-                        totals = parsed
-                    elif kind == 'btts':
-                        btts = parsed
-                score = int(h2h is not None) * 10 + int(totals is not None) * 3 + int(btts is not None) * 2
-                if score > best_score:
-                    best_score = score
-                    candidate = (bm, h2h, totals, btts)
-            if candidate is not None:
-                bm, h2h, totals, btts = candidate
-                _raw = np.full(len(PRONOSTICI), np.nan)
-                if h2h is not None:
-                    for _i in range(min(3, len(h2h))):
-                        try: _raw[_i] = float(h2h[_i])
-                        except Exception: pass
-                if totals is not None:
-                    for _k, _si in (('under', 3), ('over', 4)):
-                        if totals.get(_k) is not None:
-                            try: _raw[_si] = float(totals[_k])
-                            except Exception: pass
-                if btts is not None:
-                    for _k, _si in (('gol', 5), ('no_gol', 6)):
-                        if btts.get(_k) is not None:
-                            try: _raw[_si] = float(btts[_k])
-                            except Exception: pass
-                _THEODDS_RAW_ODDS_CACHE[match] = _raw
-                if h2h is not None:
-                    full = np.ones(len(PRONOSTICI), dtype=float) * 1e-6
-                    try:
-                        inv_h2h = 1.0 / np.array(h2h, dtype=float)
-                    except Exception:
-                        return None
-                    full[0:3] = inv_h2h / inv_h2h.sum()
-                    if totals is not None:
-                        if totals.get('under') is not None and totals.get('over') is not None:
-                            full[3] = 1.0 / float(totals['under'])
-                            full[4] = 1.0 / float(totals['over'])
-                    if btts is not None:
-                        if btts.get('gol') is not None:
-                            full[5] = 1.0 / float(btts['gol'])
-                        if btts.get('no_gol') is not None:
-                            full[6] = 1.0 / float(btts['no_gol'])
-                    full = full / full.sum()
-                    if debug_odds:
-                        print('Selected bookmaker:', bm.get('key'))
-                        print('h2h:', h2h)
-                        print('totals:', totals)
-                        print('btts:', btts)
-                        print('final probs:', full)
-                    return full
-
-    # fallback: fetch broad odds if event-by-event lookup fails
-    base = 'https://api.the-odds-api.com/v4'
-    params = {
-        'regions': 'eu',
-        'markets': 'h2h,totals',
-        'oddsFormat': 'decimal',
-        'dateFormat': 'iso',
-        'apiKey': api_key,
-    }
-    resp = requests.get(f"{base}/sports/{sport_key}/odds", params=params, timeout=10)
-    resp.raise_for_status()
-    events = resp.json()
-    if debug_odds:
-        print(f'TheOddsAPI /sports/{sport_key}/odds response ({len(events)} events):')
-        print(events)
-
-    def normalize(s):
-        return (s or '').strip().lower()
-
-    for ev in events:
-        if debug_odds:
-            print('Checking event:', ev.get('home_team'), 'vs', ev.get('away_team'))
-        h = normalize(ev.get('home_team'))
-        a = normalize(ev.get('away_team'))
-        if (home in h and away in a) or (home in a and away in h) or (home == h and away == a):
-            candidate = None
-            best_score = -1
-            for bm in ev.get('bookmakers', []):
-                h2h = None
-                totals = None
-                btts = None
-                for m in bm.get('markets', []):
-                    kind, parsed = parse_theodds_market(m, home, away, debug=debug_odds)
-                    if kind == 'h2h':
-                        h2h = parsed
-                    elif kind == 'totals':
-                        totals = parsed
-                    elif kind == 'btts':
-                        btts = parsed
-                score = int(h2h is not None) * 10 + int(totals is not None) * 3 + int(btts is not None) * 2
-                if score > best_score:
-                    best_score = score
-                    candidate = (bm, h2h, totals, btts)
-            if candidate is not None:
-                bm, h2h, totals, btts = candidate
-                _raw = np.full(len(PRONOSTICI), np.nan)
-                if h2h is not None:
-                    for _i in range(min(3, len(h2h))):
-                        try: _raw[_i] = float(h2h[_i])
-                        except Exception: pass
-                if totals is not None:
-                    for _k, _si in (('under', 3), ('over', 4)):
-                        if totals.get(_k) is not None:
-                            try: _raw[_si] = float(totals[_k])
-                            except Exception: pass
-                if btts is not None:
-                    for _k, _si in (('gol', 5), ('no_gol', 6)):
-                        if btts.get(_k) is not None:
-                            try: _raw[_si] = float(btts[_k])
-                            except Exception: pass
-                _THEODDS_RAW_ODDS_CACHE[match] = _raw
-                if h2h is not None:
-                    full = np.ones(len(PRONOSTICI), dtype=float) * 1e-6
-                    try:
-                        inv_h2h = 1.0 / np.array(h2h, dtype=float)
-                    except Exception:
-                        continue
-                    full[0:3] = inv_h2h / inv_h2h.sum()
-                    if totals is not None:
-                        if totals.get('under') and totals.get('over'):
-                            full[3] = 1.0 / float(totals['under'])
-                            full[4] = 1.0 / float(totals['over'])
-                    if btts is not None:
-                        if btts.get('gol'):
-                            full[5] = 1.0 / float(btts['gol'])
-                        if btts.get('no_gol'):
-                            full[6] = 1.0 / float(btts['no_gol'])
-                    full = full / full.sum()
-                    if debug_odds:
-                        print('Selected bookmaker:', bm.get('key'))
-                        print('h2h:', h2h)
-                        print('totals:', totals)
-                        print('btts:', btts)
-                        print('final probs:', full)
-                    return full
-    return None
+    full = np.full(len(PRONOSTICI), 1e-6)
+    inv_h2h = 1.0 / raw[0:3]
+    full[0:3] = inv_h2h / inv_h2h.sum()
+    for i in range(3, len(PRONOSTICI)):
+        if np.isfinite(raw[i]) and raw[i] > 0:
+            full[i] = 1.0 / raw[i]
+    return full / full.sum()
 
 
 def draw_matches(df, k=3, seed=None):

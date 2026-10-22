@@ -169,9 +169,10 @@
     <p class="text-[#78716c] text-xs mb-3">
       Tutte selezionate di default. Deseleziona, elimina o rinomina prima di avviare.
     </p>
+    <p id="odds-status" class="text-xs mb-3 text-[#78716c]"></p>
     <div id="match-list" class="space-y-1">
       {% for m in matches %}
-      <div class="match-item flex items-center gap-2 bg-[#0f0d08] rounded-lg px-3 py-2"
+      <div class="match-item flex flex-wrap items-center gap-2 bg-[#0f0d08] rounded-lg px-3 py-2"
            data-idx="{{ m.idx }}">
         <input type="checkbox" class="match-cb accent-[#f59e0b] w-4 h-4 flex-shrink-0"
                checked onchange="updateMatchSelection()">
@@ -186,6 +187,7 @@
         <button type="button" onclick="deleteMatch(this.closest('.match-item'))"
                 class="text-[#78716c] hover:text-red-400 text-sm px-1 flex-shrink-0"
                 title="Elimina">&#x2715;</button>
+        <div class="match-odds w-full pl-6 text-[11px] text-[#78716c] font-mono"></div>
       </div>
       {% endfor %}
     </div>
@@ -294,6 +296,7 @@
     el.classList.add('truncate');
     if (!el.textContent.trim()) el.textContent = el.dataset.original || el.textContent;
     updateMatchSelection();
+    loadOdds([el.closest('.match-item')]);
   }
 
   function deleteMatch(item) {
@@ -312,6 +315,71 @@
   // Init on load
   document.addEventListener('DOMContentLoaded', updateMatchSelection);
 
+  // ── Odds preview ───────────────────────────────────────────────────────
+  const ODDS_LABELS = ['1', 'X', '2', 'U', 'O', 'GG', 'NG'];
+
+  function setOddsStatus(text, isError) {
+    const st = document.getElementById('odds-status');
+    if (!st) return;
+    st.textContent = text;
+    st.className = 'text-xs mb-3 ' + (isError ? 'text-red-400' : 'text-[#78716c]');
+  }
+
+  function renderOdds(item, result) {
+    const box = item.querySelector('.match-odds');
+    box.replaceChildren();
+    if (!result.odds) {
+      box.className = 'match-odds w-full pl-6 text-[11px] text-red-400';
+      box.textContent = 'non trovata su TheOddsAPI — rinomina come nel calendario (es. "Napoli - Roma")';
+      return;
+    }
+    box.className = 'match-odds w-full pl-6 text-[11px] text-[#78716c] font-mono';
+    ODDS_LABELS.forEach((label, i) => {
+      const span = document.createElement('span');
+      span.className = 'mr-3';
+      const v = result.odds[i];
+      span.textContent = label + ' ' + (v == null ? '–' : v.toFixed(2));
+      if (v != null) span.classList.add('text-[#fde68a]');
+      box.appendChild(span);
+    });
+    const ev = document.createElement('span');
+    ev.className = 'text-[#57534e]';
+    ev.textContent = '→ ' + result.event;
+    box.appendChild(ev);
+  }
+
+  async function loadOdds(items) {
+    const list = items || [...document.querySelectorAll('#match-list .match-item')];
+    if (!list.length) return;
+    list.forEach(it => { it.querySelector('.match-odds').textContent = '…'; });
+    setOddsStatus('Carico quote da TheOddsAPI…');
+    try {
+      const resp = await fetch('/api/odds', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          key: document.getElementById('theodds-key')?.value.trim() || null,
+          matches: list.map(it => it.querySelector('.match-name').textContent.trim()),
+        }),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      data.results.forEach((r, i) => renderOdds(list[i], r));
+      list.slice(data.results.length).forEach(it => { it.querySelector('.match-odds').textContent = ''; });
+      const credits = data.remaining != null ? ' · crediti rimasti: ' + data.remaining : '';
+      if (data.error) {
+        setOddsStatus(data.error + credits, true);
+      } else {
+        const all = document.querySelectorAll('#match-list .match-odds');
+        const found = [...all].filter(b => b.querySelector('span')).length;
+        setOddsStatus('Quote trovate: ' + found + '/' + all.length + credits, found < all.length);
+      }
+    } catch (e) {
+      list.forEach(it => { it.querySelector('.match-odds').textContent = ''; });
+      setOddsStatus('Errore caricamento quote: ' + e.message, true);
+    }
+  }
+
   // Persist TheOdds key in localStorage
   const keyInput = document.getElementById('theodds-key');
   const useOdds  = document.getElementById('use-odds');
@@ -321,7 +389,9 @@
     keyInput.addEventListener('change', () => {
       localStorage.setItem('theodds_key', keyInput.value);
       if (keyInput.value) useOdds.checked = true;
+      loadOdds();
     });
   }
+  loadOdds();
 </script>
 {% endblock %}

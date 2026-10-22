@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from app import db as database
 from app import service
@@ -63,6 +64,17 @@ async def configura_form(request: Request, session_id: int):
         "preview_rows": preview["rows"],
         "matches": preview["matches"],
     })
+
+
+class OddsPreviewRequest(BaseModel):
+    matches: list[str]
+    key: Optional[str] = None
+
+
+@app.post("/api/odds")
+def odds_preview(body: OddsPreviewRequest):
+    # Sync handler: TheOddsAPI calls block, FastAPI runs this in its threadpool.
+    return service.get_odds_preview(body.matches, body.key or None)
 
 
 @app.post("/configura/{session_id}")
