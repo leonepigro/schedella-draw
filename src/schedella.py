@@ -21,6 +21,11 @@ THEODDS_REGIONS = 'eu'
 THEODDS_MARKETS = 'h2h,totals,btts'
 # Odds barely move between upload and draw; long enough to reuse preview lookups, short enough to refresh per matchday.
 ODDS_CACHE_TTL_SECONDS = 30 * 60
+# A forced refresh re-reads a match only if its cached odds are older than this: the endpoint is public,
+# so repeated refresh clicks (or scripted calls) must not burn ~3 credits per match each time.
+ODDS_FORCE_MIN_INTERVAL_SECONDS = 5 * 60
+# The schedule sheet holds at most 10 matches; anything beyond this is not a real request.
+ODDS_PREVIEW_MAX_MATCHES = 20
 # Excel short names whose plain substring match against TheOddsAPI names fails or is ambiguous
 # (e.g. 'milan' would also match 'inter milan').
 THEODDS_TEAM_ALIASES = {
@@ -404,14 +409,15 @@ def lookup_theodds_match(match, api_key, debug=False, force=False):
     Returns {'raw': np.ndarray of 7 decimal odds (NaN where missing) | None, 'event': 'Home - Away' | None,
     'event_id': str | None}. 'event' is the API's own name for the matched event, so the caller can show
     what was matched. Raises TheOddsError on API failures; results (found or not) are cached for
-    ODDS_CACHE_TTL_SECONDS. force=True skips the cached result for this match (sports/events stay cached).
+    ODDS_CACHE_TTL_SECONDS. force=True re-reads this match unless cached less than ODDS_FORCE_MIN_INTERVAL_SECONDS
+    ago (sports/events stay cached).
     """
     match = str(match or '').strip()
     cache_key = ('match', api_key, match)
-    if not force:
-        found, cached = _cache_get(cache_key)
-        if found:
-            return cached
+    hit = _THEODDS_CACHE.get(cache_key)
+    max_age = ODDS_FORCE_MIN_INTERVAL_SECONDS if force else ODDS_CACHE_TTL_SECONDS
+    if hit is not None and time.monotonic() - hit[0] < max_age:
+        return hit[1]
 
     result = {'raw': None, 'event': None, 'event_id': None}
     if ' - ' in match:

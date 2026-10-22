@@ -61,6 +61,13 @@ def clear_cache():
     schedella._THEODDS_CACHE.clear()
 
 
+def _age_match_cache(match, key):
+    """Pretend the cached lookup is older than the forced-refresh minimum interval."""
+    cache_key = ("match", key, match)
+    ts, value = schedella._THEODDS_CACHE[cache_key]
+    schedella._THEODDS_CACHE[cache_key] = (ts - schedella.ODDS_FORCE_MIN_INTERVAL_SECONDS - 1, value)
+
+
 def test_lookup_returns_all_seven_odds():
     with patch.object(schedella.requests, "get", side_effect=_fake_get):
         found = schedella.lookup_theodds_match("Napoli - Roma", "k")
@@ -153,6 +160,7 @@ def test_lookup_returns_event_id():
 def test_force_bypasses_match_cache():
     with patch.object(schedella.requests, "get", side_effect=_fake_get) as get:
         schedella.lookup_theodds_match("Napoli - Roma", "k")
+        _age_match_cache("Napoli - Roma", "k")
         calls = get.call_count
         schedella.lookup_theodds_match("Napoli - Roma", "k", force=True)
     assert get.call_count == calls + 1  # only the event odds call; sports/events stay cached
@@ -175,3 +183,23 @@ def test_odds_preview_without_db_has_no_first_odds():
     with patch.object(schedella.requests, "get", side_effect=_fake_get):
         out = get_odds_preview(["Napoli - Roma"], "k")
     assert out["results"][0]["first_odds"] is None
+
+
+def test_force_ignored_when_cache_is_fresh(monkeypatch):
+    with patch.object(schedella.requests, "get", side_effect=_fake_get) as get:
+        schedella.lookup_theodds_match("Napoli - Roma", "k")
+        calls = get.call_count
+        schedella.lookup_theodds_match("Napoli - Roma", "k", force=True)
+        assert get.call_count == calls              # just fetched: force does not re-read
+        _age_match_cache("Napoli - Roma", "k")
+        schedella.lookup_theodds_match("Napoli - Roma", "k", force=True)
+        assert get.call_count == calls + 1          # older than the minimum interval: re-read
+        schedella.lookup_theodds_match("Napoli - Roma", "k", force=True)
+        assert get.call_count == calls + 1          # second one within the minimum interval is served from cache
+
+
+def test_odds_preview_caps_match_count():
+    names = [f"Team{i} - Other{i}" for i in range(schedella.ODDS_PREVIEW_MAX_MATCHES + 5)]
+    with patch.object(schedella.requests, "get", side_effect=_fake_get):
+        out = get_odds_preview(names, "k")
+    assert len(out["results"]) == schedella.ODDS_PREVIEW_MAX_MATCHES

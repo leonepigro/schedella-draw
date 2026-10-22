@@ -29,6 +29,7 @@ from src.schedella import (
     format_date,
     lookup_theodds_match,
     theodds_remaining_credits,
+    ODDS_PREVIEW_MAX_MATCHES,
     TheOddsError,
 )
 from src.form_data import match_form, FootballDataError
@@ -50,7 +51,7 @@ def get_odds_preview(match_names: list, api_key: str = None, db_path: str = None
         return {"results": [], "remaining": None, "error": "Inserisci la API key TheOddsAPI per vedere le quote."}
 
     results = []
-    for name in match_names:
+    for name in match_names[:ODDS_PREVIEW_MAX_MATCHES]:
         try:
             found = lookup_theodds_match(name, api_key, force=force)
         except TheOddsError as exc:
@@ -131,14 +132,28 @@ def get_form_preview(match_names: list, api_key: str = None) -> dict:
     return {"results": results, "error": None}
 
 
-def _form_or_none(match_name: str, api_key: str):
-    """Form saved with a drawn session; missing key or API failure must not block the draw."""
-    if not api_key:
-        return None
-    try:
-        return match_form(match_name, api_key)
-    except FootballDataError:
-        return None
+def _make_form_lookup(api_key: str):
+    """
+    Per-draw form lookup, memoised by match name. A missing key or API failure must not block the draw, and
+    after the first FootballDataError no more calls are made: a down or rate-limited football-data would
+    otherwise be retried (up to the request timeout) for every match of every player.
+    """
+    memo = {}
+    disabled = not api_key
+
+    def lookup(match_name: str):
+        nonlocal disabled
+        if disabled:
+            return None
+        if match_name not in memo:
+            try:
+                memo[match_name] = match_form(match_name, api_key)
+            except FootballDataError:
+                disabled = True
+                return None
+        return memo[match_name]
+
+    return lookup
 
 
 def _row_to_match_dict(row, probs, raw_odds):
@@ -310,7 +325,7 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
     seed = params.get("seed")
     use_odds = params.get("use_odds", False)
     theodds_key = params.get("theodds_key")
-    form_key = os.environ.get("FOOTBALLDATA_KEY")
+    form_lookup = _make_form_lookup(os.environ.get("FOOTBALLDATA_KEY"))
 
     rng = np.random.default_rng(seed)
 
@@ -323,7 +338,7 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
             probs = probs_from_row(row, use_odds=use_odds, theodds_key=theodds_key)
             raw_odds = raw_odds_from_row(row, use_odds=use_odds, theodds_key=theodds_key)
             m = _row_to_match_dict(row, probs, raw_odds)
-            m["form"] = _form_or_none(m["match_name"], form_key)
+            m["form"] = form_lookup(m["match_name"])
             matches_out.append(m)
 
         if extras is not None:
@@ -331,7 +346,7 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
                 probs = probs_from_row(row, use_odds=use_odds, theodds_key=theodds_key)
                 raw_odds = raw_odds_from_row(row, use_odds=use_odds, theodds_key=theodds_key)
                 m = _row_to_match_dict(row, probs, raw_odds)
-                m["form"] = _form_or_none(m["match_name"], form_key)
+                m["form"] = form_lookup(m["match_name"])
                 m["extra"] = True
                 matches_out.append(m)
 

@@ -163,3 +163,25 @@ def test_prepare_session_with_form(monkeypatch):
         result = service.prepare_session(_make_excel_bytes(), "t.xlsx", {"per_player": 3, "players": 1})
     forms = [m["form"] for m in result["players"][0]["matches"]]
     assert all(set(f) == {"home", "away"} for f in forms)
+
+
+def test_find_team_empty_name_is_none():
+    table = STANDINGS["standings"][0]["table"]
+    assert form_data.find_team("", table) is None
+    assert form_data.find_team("   ", table) is None
+
+
+def test_find_team_ambiguous_substring_is_none():
+    # "mila" is a substring of both "AC Milan"/"Milan" and "FC Internazionale Milano": refuse to guess
+    table = STANDINGS["standings"][0]["table"]
+    assert form_data.find_team("mila", table) is None
+
+
+def test_prepare_session_stops_form_calls_after_error(monkeypatch):
+    from tests.test_service import _make_excel_bytes
+    monkeypatch.setenv("FOOTBALLDATA_KEY", "k")
+    with patch.object(form_data.requests, "get",
+                      return_value=_resp({"message": "Too many requests"}, status=429)) as get:
+        result = service.prepare_session(_make_excel_bytes(), "t.xlsx", {"per_player": 3, "players": 3})
+    assert all(m["form"] is None for p in result["players"] for m in p["matches"])
+    assert get.call_count == 1  # first failure disables form lookups for the rest of the draw

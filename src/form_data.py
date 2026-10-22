@@ -59,8 +59,11 @@ def _norm(value):
 
 
 def find_team(name, standings):
-    """Team id for an Excel team name: exact match on shortName/name/tla first, then substring of shortName/name."""
+    """Team id for an Excel team name: exact match on shortName/name/tla first, then an unambiguous
+    substring of shortName/name. Empty or ambiguous names return None rather than a wrong team."""
     name = _norm(name)
+    if not name:
+        return None
     name = FOOTBALLDATA_TEAM_ALIASES.get(name, name)
     candidates = [
         (row['team']['id'], [_norm(row['team'].get(k)) for k in ('shortName', 'name', 'tla')])
@@ -69,10 +72,8 @@ def find_team(name, standings):
     for team_id, names in candidates:
         if name in names:
             return team_id
-    for team_id, names in candidates:
-        if any(name in n for n in names[:2] if n):
-            return team_id
-    return None
+    partial = [team_id for team_id, names in candidates if any(name in n for n in names[:2] if n)]
+    return partial[0] if len(partial) == 1 else None
 
 
 def _avg(values):
