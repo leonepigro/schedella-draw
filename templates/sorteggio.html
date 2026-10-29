@@ -151,7 +151,8 @@
   }
 
   document.body.addEventListener('htmx:afterSwap', function(evt) {
-    const target = evt.detail.target;
+    // outerHTML swap: evt.detail.target is the detached old row; read the new one
+    const target = document.getElementById(evt.detail.target.id) || evt.detail.target;
     const badge = target.querySelector('.badge-pron');
     if (!badge) return;
     const pron = badge.textContent.trim().toLowerCase();
