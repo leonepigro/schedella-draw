@@ -285,7 +285,8 @@ class SchedellaDice {
         cb && cb();
       } else {
         // Ease-out: factor proportional to angle so it decelerates naturally
-        const t = Math.min(0.12, angle * 0.055);
+        // Floor keeps convergence geometric near the end (settles in ~1-2 s)
+        const t = Math.min(0.12, Math.max(0.04, angle * 0.055));
         this.group.quaternion.slerp(this.targetQuat, t);
       }
     }
