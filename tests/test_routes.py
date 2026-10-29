@@ -3,6 +3,9 @@ import pytest
 import pandas as pd
 from fastapi.testclient import TestClient
 
+MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+JSON = {"accept": "application/json"}
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     db = str(tmp_path / "test.db")
@@ -123,6 +126,21 @@ def test_nuova_default_excel_missing(client, tmp_path, monkeypatch):
     assert "/nuova/default" not in client.get("/nuova").text
     r = client.post("/nuova/default", follow_redirects=False)
     assert r.headers["location"] == "/nuova"
+
+def test_nuova_upload_json_returns_redirect(client):
+    r = client.post("/nuova", files={"excel_file": ("t.xlsx", _excel_bytes(), MIME)}, headers=JSON)
+    assert r.status_code == 200 and r.json()["redirect"].startswith("/configura/")
+
+def test_riapri_missing_json_redirects_to_nuova(client):
+    r = client.post("/nuova/riapri/9999", headers=JSON)
+    assert r.json() == {"redirect": "/nuova"}
+
+def test_nuova_default_json(client, tmp_path, monkeypatch):
+    import app.main as amain
+    path = tmp_path / "Schedella2627.xlsx"
+    path.write_bytes(_excel_bytes())
+    monkeypatch.setattr(amain, "DEFAULT_EXCEL_PATH", str(path))
+    assert client.post("/nuova/default", headers=JSON).json()["redirect"].startswith("/configura/")
 
 
 def test_api_form_without_key(client, monkeypatch):

@@ -3,7 +3,7 @@ import json
 from contextlib import asynccontextmanager
 from typing import Optional
 from fastapi import FastAPI, Request, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -20,6 +20,13 @@ DEFAULT_EXCEL_PATH = os.environ.get(
 
 def _default_excel_path():
     return DEFAULT_EXCEL_PATH if os.path.isfile(DEFAULT_EXCEL_PATH) else None
+
+
+def _redirect(request: Request, url: str):
+    # Fetch callers (progress popup) ask for JSON and navigate themselves; plain form posts keep the 303.
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"redirect": url})
+    return RedirectResponse(url, status_code=303)
 
 
 @asynccontextmanager
@@ -59,28 +66,28 @@ async def nuova_form(request: Request):
 async def nuova_upload(request: Request, excel_file: UploadFile = File(...)):
     excel_bytes = await excel_file.read()
     session_id = database.create_upload_session(DB_PATH, excel_file.filename, excel_bytes)
-    return RedirectResponse(f"/configura/{session_id}", status_code=303)
+    return _redirect(request, f"/configura/{session_id}")
 
 
 @app.post("/nuova/riapri/{session_id}")
-async def nuova_riapri(session_id: int):
+async def nuova_riapri(request: Request, session_id: int):
     # Copy into a new session so an already drawn session is never altered.
     data = database.get_session_bytes(DB_PATH, session_id)
     if not data or not data.get("excel_bytes"):
-        return RedirectResponse("/nuova", status_code=303)
+        return _redirect(request, "/nuova")
     new_id = database.create_upload_session(DB_PATH, data["excel_filename"], data["excel_bytes"])
-    return RedirectResponse(f"/configura/{new_id}", status_code=303)
+    return _redirect(request, f"/configura/{new_id}")
 
 
 @app.post("/nuova/default")
-async def nuova_default():
+async def nuova_default(request: Request):
     default_path = _default_excel_path()
     if not default_path:
-        return RedirectResponse("/nuova", status_code=303)
+        return _redirect(request, "/nuova")
     with open(default_path, "rb") as f:
         excel_bytes = f.read()
     session_id = database.create_upload_session(DB_PATH, os.path.basename(default_path), excel_bytes)
-    return RedirectResponse(f"/configura/{session_id}", status_code=303)
+    return _redirect(request, f"/configura/{session_id}")
 
 
 @app.get("/configura/{session_id}", response_class=HTMLResponse)
