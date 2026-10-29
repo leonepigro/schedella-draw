@@ -5,7 +5,7 @@
 <h1 class="page-title">Nuova Schedella</h1>
 
 {% if default_excel %}
-<form method="post" action="/nuova/default" class="mb-4" onsubmit="Progress.uploadForm(this)">
+<form method="post" action="/nuova/default" class="mb-4" onsubmit="return Progress.uploadForm(this)">
   <button type="submit" class="btn-gold w-full py-3 text-base">&#x26A1; Usa {{ default_excel }} &#x2192;</button>
 </form>
 <p class="muted text-xs text-center mb-4">oppure carica un altro file</p>
@@ -16,7 +16,7 @@
   <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F5C2; Schedelle caricate</h2>
   <div class="space-y-1">
     {% for u in recent_uploads %}
-    <form method="post" action="/nuova/riapri/{{ u.session_id }}" onsubmit="Progress.uploadForm(this)">
+    <form method="post" action="/nuova/riapri/{{ u.session_id }}" onsubmit="return Progress.uploadForm(this)">
       <button type="submit"
               class="w-full flex items-center justify-between bg-[#12100a] hover:bg-[#2d2410] border border-[#241d0e] rounded-lg px-3 py-2 text-sm transition-colors">
         <span class="text-[#e5e7eb] truncate">{{ u.excel_filename }}</span>
@@ -28,7 +28,7 @@
 </div>
 {% endif %}
 
-<form method="post" action="/nuova" enctype="multipart/form-data" class="space-y-4" onsubmit="Progress.uploadForm(this)">
+<form method="post" action="/nuova" enctype="multipart/form-data" class="space-y-4" onsubmit="return Progress.uploadForm(this)">
   <div class="card">
     <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F4C1; File Excel</h2>
     <label class="block border-2 border-dashed border-[#2d2410] rounded-lg p-12 text-center cursor-pointer hover:border-[#f59e0b] transition-colors"

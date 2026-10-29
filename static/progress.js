@@ -108,6 +108,7 @@
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       }).then(function (json) {
+        if (!json || !json.redirect) throw new Error("redirect mancante");
         Progress.done(0);
         location.href = json.redirect;
       }).catch(function () {
