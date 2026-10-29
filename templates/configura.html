@@ -285,9 +285,9 @@
       }
     });
     const inp = document.getElementById('match-selection-input');
-    if (inp) inp.value = sel.length ? JSON.stringify(sel) : '';
+    if (inp) inp.value = JSON.stringify(sel);  // '[]' = selezione esplicitamente vuota
     const cnt = document.getElementById('match-count');
-    if (cnt) cnt.textContent = sel.length + ' selezionate';
+    if (cnt) { cnt.textContent = sel.length + ' selezionate'; cnt.className = 'text-[#78716c] text-xs'; }
   }
 
   function startRename(el) {
@@ -325,8 +325,21 @@
   });
 
   const DRAW_STEPS = ["Leggo l'Excel", "Scarico le quote", "Recupero la forma delle squadre", "Sorteggio e salvo"];
+  let drawSubmitting = false;
+  window.addEventListener('pageshow', () => { drawSubmitting = false; });
   function startDraw(form) {
+    if (drawSubmitting) return false;  // evita doppio invio (es. Invio ripetuto)
     updateMatchSelection();  // popola match_selection prima dell'invio
+    const input = document.getElementById('match-selection-input');
+    if (input && input.value === '[]') {
+      const cnt = document.getElementById('match-count');
+      if (cnt) {
+        cnt.textContent = 'Seleziona almeno una partita.';
+        cnt.className = 'text-red-400 text-xs font-semibold';
+      }
+      return false;
+    }
+    drawSubmitting = true;
     const btn = document.getElementById('draw-submit');
     if (btn) btn.disabled = true;
     Progress.open("Sorteggio in corso…", DRAW_STEPS, {indeterminate: true});

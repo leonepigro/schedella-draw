@@ -206,3 +206,10 @@ def test_configura_submit_uses_progress(client):
     r = client.post("/nuova", files={"excel_file": ("t.xlsx", _excel_bytes(), MIME)}, follow_redirects=False)
     page = client.get(r.headers["location"]).text
     assert "Progress.open(" in page and "indeterminate" in page
+
+
+def test_configura_empty_match_selection_is_error(client):
+    r = client.post("/nuova", files={"excel_file": ("t.xlsx", _excel_bytes(), MIME)}, follow_redirects=False)
+    r2 = client.post(r.headers["location"], data={"players": 1, "per_player": 3, "selection_mode": "none", "match_selection": "[]"})
+    assert r2.status_code == 400
+    assert "Nessuna partita selezionata." in r2.text

@@ -304,7 +304,7 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
 
     # Apply curated match selection (rename + filter)
     match_selection = params.get("match_selection")
-    if match_selection:
+    if match_selection is not None:
         name_map = {m["idx"]: m["name"] for m in match_selection}
         df = df[df.index.isin(name_map.keys())].copy()
         df["match"] = df.index.map(lambda i: name_map.get(i, df.at[i, "match"]))
