@@ -2,13 +2,13 @@
 {% set active = "nuova" %}
 {% block title %}Nuova Schedella{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-[#f59e0b] mb-6">Nuova Schedella</h1>
+<h1 class="page-title">Nuova Schedella</h1>
 
 {% if default_excel %}
-<form method="post" action="/nuova/default" class="mb-4">
+<form method="post" action="/nuova/default" class="mb-4" onsubmit="Progress.uploadForm(this)">
   <button type="submit" class="btn-gold w-full py-3 text-base">&#x26A1; Usa {{ default_excel }} &#x2192;</button>
 </form>
-<p class="text-[#78716c] text-xs text-center mb-4">oppure carica un altro file</p>
+<p class="muted text-xs text-center mb-4">oppure carica un altro file</p>
 {% endif %}
 
 {% if recent_uploads %}
@@ -16,11 +16,11 @@
   <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F5C2; Schedelle caricate</h2>
   <div class="space-y-1">
     {% for u in recent_uploads %}
-    <form method="post" action="/nuova/riapri/{{ u.session_id }}">
+    <form method="post" action="/nuova/riapri/{{ u.session_id }}" onsubmit="Progress.uploadForm(this)">
       <button type="submit"
-              class="w-full flex items-center justify-between bg-[#0f0d08] hover:bg-[#1a160d] rounded-lg px-3 py-2 text-sm">
+              class="w-full flex items-center justify-between bg-[#12100a] hover:bg-[#2d2410] border border-[#241d0e] rounded-lg px-3 py-2 text-sm transition-colors">
         <span class="text-[#e5e7eb] truncate">{{ u.excel_filename }}</span>
-        <span class="text-[#78716c] text-xs flex-shrink-0 ml-3">{{ u.created_at[:16] }} UTC &#x2192;</span>
+        <span class="muted text-xs flex-shrink-0 ml-3">{{ u.created_at[:16] }} UTC &#x2192;</span>
       </button>
     </form>
     {% endfor %}
@@ -28,7 +28,7 @@
 </div>
 {% endif %}
 
-<form method="post" action="/nuova" enctype="multipart/form-data" class="space-y-4">
+<form method="post" action="/nuova" enctype="multipart/form-data" class="space-y-4" onsubmit="Progress.uploadForm(this)">
   <div class="card">
     <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F4C1; File Excel</h2>
     <label class="block border-2 border-dashed border-[#2d2410] rounded-lg p-12 text-center cursor-pointer hover:border-[#f59e0b] transition-colors"
@@ -36,7 +36,7 @@
       <input type="file" name="excel_file" accept=".xlsx,.xls" required class="hidden" id="file-input"
              onchange="document.getElementById('file-name').textContent = this.files[0]?.name || ''">
       <div class="text-4xl mb-3">&#x1F4C2;</div>
-      <div class="text-[#92400e]">Trascina il file Excel qui o clicca per selezionarlo</div>
+      <div class="muted">Trascina il file Excel qui o clicca per selezionarlo</div>
       <div id="file-name" class="text-[#f59e0b] mt-2 text-sm font-medium"></div>
     </label>
   </div>

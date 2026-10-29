@@ -23,16 +23,26 @@
       }
     }
   </script>
-  <style>
+  <style type="text/tailwindcss">
     body { background-color: #12100a; color: #e5e7eb; }
-    .nav-link { @apply text-[#92400e] hover:text-[#f59e0b] transition-colors px-3 py-2 text-sm font-medium; }
-    .nav-link.active { @apply text-[#f59e0b] border-b-2 border-[#f59e0b]; }
+    .muted { color: #a8a29e; }
+    .page-title { @apply text-2xl font-bold text-[#fde68a] mb-6; }
+    .nav-link { @apply text-[#a8a29e] hover:text-[#f59e0b] transition-colors px-3 py-1.5 text-sm font-medium rounded-full; }
+    .nav-link.active { @apply bg-[#2d2410] text-[#fde68a]; }
     .card { @apply bg-[#1a160d] border border-[#2d2410] rounded-xl p-4; }
+    .kpi { @apply bg-[#1a160d] border border-[#2d2410] rounded-xl px-4 py-3; }
+    .kpi-label { @apply text-xs uppercase tracking-wide text-[#a8a29e]; }
+    .kpi-value { @apply text-2xl font-bold text-[#fde68a] tabular-nums mt-1; }
     .btn-gold { @apply bg-[#f59e0b] text-[#12100a] font-bold px-4 py-2 rounded-lg hover:bg-[#fde68a] transition-colors; }
-    .btn-ghost { @apply border border-[#2d2410] text-[#92400e] px-4 py-2 rounded-lg hover:border-[#f59e0b] hover:text-[#f59e0b] transition-colors; }
-    .badge-won  { @apply bg-emerald-900 text-emerald-300 text-xs px-2 py-0.5 rounded-full; }
-    .badge-lost { @apply bg-red-900 text-red-300 text-xs px-2 py-0.5 rounded-full; }
-    .badge-void { @apply bg-[#2d2410] text-[#78716c] text-xs px-2 py-0.5 rounded-full; }
+    .btn-gold:disabled { @apply opacity-50 cursor-not-allowed hover:bg-[#f59e0b]; }
+    .btn-ghost { @apply border border-[#2d2410] text-[#a8a29e] px-4 py-2 rounded-lg hover:border-[#f59e0b] hover:text-[#f59e0b] transition-colors; }
+    .table-a { @apply w-full text-sm border-collapse tabular-nums; }
+    .table-a thead th { @apply bg-[#15120b] text-[#a8a29e] text-xs uppercase tracking-wide font-medium px-3 py-2.5 text-left; }
+    .table-a td { @apply px-3 py-2.5 border-b border-[#241d0e]; }
+    .badge-won  { @apply bg-emerald-900 text-emerald-300 text-xs px-2.5 py-0.5 rounded-full; }
+    .badge-lost { @apply bg-red-900 text-red-300 text-xs px-2.5 py-0.5 rounded-full; }
+    .badge-void { @apply bg-[#2d2410] text-[#a8a29e] text-xs px-2.5 py-0.5 rounded-full; }
+    .badge-open { @apply bg-amber-900/40 text-[#fde68a] text-xs px-2.5 py-0.5 rounded-full; }
     .badge-pron { @apply bg-[#2d2410] text-[#f59e0b] text-xs px-2 py-1 rounded; }
     .input-gold { @apply border rounded-lg px-3 py-2 w-full focus:outline-none; background-color: #fde68a; color: #1a160d; border-color: #f59e0b; }
     .input-gold::placeholder { color: #92400e; opacity: 0.7; }
@@ -51,13 +61,13 @@
 <body class="min-h-screen">
 
   <!-- Desktop top nav -->
-  <nav class="hidden md:flex items-center gap-1 px-6 h-14 bg-[#1a160d] border-b border-[#2d2410]">
+  <nav class="hidden md:flex items-center gap-2 px-6 h-14 bg-[#1a160d] border-b border-[#2d2410]">
     <span class="text-[#f59e0b] font-bold text-lg mr-6">&#x26BD; Schedella</span>
     <a href="/"          class="nav-link {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
-    <a href="/nuova"     class="nav-link {% if active=='nuova'     %}active{% endif %}">Nuova</a>
     <a href="/sorteggio" class="nav-link {% if active=='sorteggio' %}active{% endif %}">Sorteggio</a>
     <a href="/storia"    class="nav-link {% if active=='storia'    %}active{% endif %}">Storia</a>
     <a href="/analisi"   class="nav-link {% if active=='analisi'   %}active{% endif %}">Analisi</a>
+    <a href="/nuova"     class="btn-gold ml-auto text-sm !py-1.5">+ Nuova</a>
   </nav>
 
   <!-- Mobile top bar -->
@@ -87,6 +97,9 @@
       <span class="text-xl">&#x1F4C8;</span><span>Analisi</span>
     </a>
   </nav>
+
+  {% include "fragments/progress_modal.html" %}
+  <script src="/static/progress.js"></script>
 
   {% block scripts %}{% endblock %}
 </body>

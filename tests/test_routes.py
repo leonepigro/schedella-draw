@@ -189,3 +189,14 @@ def test_configura_has_refresh_button(client):
     r = client.post("/nuova", files={"excel_file": ("t.xlsx", data, mime)}, follow_redirects=False)
     page = client.get(r.headers["location"]).text
     assert 'id="odds-refresh"' in page and 'class="match-form' in page
+
+
+def test_base_uses_tailwind_style_block(client):
+    page = client.get("/").text
+    assert 'type="text/tailwindcss"' in page
+    assert 'id="progress-modal"' in page and "/static/progress.js" in page
+
+
+def test_nuova_forms_use_progress(client):
+    page = client.get("/nuova").text
+    assert page.count("Progress.uploadForm(this)") >= 1

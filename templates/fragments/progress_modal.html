@@ -1,0 +1,17 @@
+<div id="progress-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/70 px-4" role="dialog" aria-modal="true" aria-labelledby="progress-title">
+  <div class="card w-full max-w-sm !p-6 shadow-2xl">
+    <div class="flex items-center gap-3 mb-4">
+      <div id="progress-spinner" class="w-5 h-5 rounded-full border-2 border-[#2d2410] border-t-[#f59e0b] animate-spin"></div>
+      <h2 id="progress-title" class="text-[#fde68a] font-semibold"></h2>
+    </div>
+    <ul id="progress-steps" class="space-y-2 text-sm mb-4"></ul>
+    <div id="progress-bar-wrap" class="h-1.5 rounded-full bg-[#2d2410] overflow-hidden mb-3">
+      <div id="progress-bar" class="h-full bg-[#f59e0b] transition-all duration-300" style="width:0%"></div>
+    </div>
+    <div class="muted text-xs tabular-nums">Tempo trascorso <span id="progress-elapsed">00:00</span></div>
+    <div id="progress-error" class="hidden mt-4">
+      <p id="progress-error-msg" class="text-sm text-red-300 mb-3"></p>
+      <button type="button" id="progress-close" class="btn-ghost w-full">Chiudi</button>
+    </div>
+  </div>
+</div>
