@@ -200,3 +200,9 @@ def test_base_uses_tailwind_style_block(client):
 def test_nuova_forms_use_progress(client):
     page = client.get("/nuova").text
     assert page.count("Progress.uploadForm(this)") >= 1
+
+
+def test_configura_submit_uses_progress(client):
+    r = client.post("/nuova", files={"excel_file": ("t.xlsx", _excel_bytes(), MIME)}, follow_redirects=False)
+    page = client.get(r.headers["location"]).text
+    assert "Progress.open(" in page and "indeterminate" in page

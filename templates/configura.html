@@ -2,13 +2,23 @@
 {% set active = "nuova" %}
 {% block title %}Configura Schedella{% endblock %}
 {% block content %}
-<div class="flex items-center gap-3 mb-6">
-  <a href="/nuova" class="text-[#78716c] hover:text-[#f59e0b] text-sm">&#x2190; Cambia file</a>
-  <h1 class="text-2xl font-bold text-[#f59e0b]">Configura Schedella</h1>
+{% if error %}
+<div role="alert" class="flex items-start gap-3 bg-red-950/60 border-2 border-red-600 text-red-200 rounded-xl p-4 mb-6">
+  <span class="text-xl leading-none">&#x26A0;&#xFE0F;</span>
+  <div>
+    <div class="font-bold text-red-100 mb-0.5">Impossibile avviare il sorteggio</div>
+    <div class="text-sm">{{ error }}</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="flex items-center gap-4 mb-6">
+  <a href="/nuova" class="btn-ghost text-sm !py-1.5">&#x2190; Cambia file</a>
+  <h1 class="page-title !mb-0">Configura Schedella</h1>
 </div>
 
 <!-- File info + preview table -->
-<div class="card mb-4">
+<div class="card mb-6">
   <div class="flex items-center gap-3 mb-3">
     <span class="text-2xl">&#x1F4C4;</span>
     <div>
@@ -18,13 +28,11 @@
   </div>
   {% if preview_cols %}
   <div class="overflow-x-auto rounded-lg border border-[#2d2410]">
-    <table class="text-xs w-full min-w-max">
+    <table class="table-a text-xs min-w-max">
       <thead>
-        <tr class="bg-[#0f0d08]">
+        <tr>
           {% for col in preview_cols %}
-          <th class="px-3 py-2 text-left font-semibold whitespace-nowrap
-                     {% if col.startswith('Unnamed') %}text-[#4b5563]{% else %}text-[#f59e0b]{% endif %}
-                     border-r border-[#2d2410] last:border-r-0">
+          <th class="whitespace-nowrap {% if col.startswith('Unnamed') %}!text-[#57534e]{% else %}!text-[#f59e0b]{% endif %}">
             {{ col if not col.startswith('Unnamed') else '—' }}
           </th>
           {% endfor %}
@@ -32,9 +40,9 @@
       </thead>
       <tbody>
         {% for row in preview_rows %}
-        <tr class="border-t border-[#2d2410] hover:bg-[#1f1a10]">
+        <tr class="hover:bg-[#1f1a10]">
           {% for cell in row %}
-          <td class="px-3 py-1.5 whitespace-nowrap text-[#e5e7eb] border-r border-[#2d2410] last:border-r-0 max-w-[160px] truncate">
+          <td class="whitespace-nowrap text-[#e5e7eb] max-w-[160px] truncate">
             {{ cell }}
           </td>
           {% endfor %}
@@ -48,15 +56,11 @@
   {% endif %}
 </div>
 
-{% if error %}
-<div class="bg-red-900/30 border border-red-700 text-red-300 rounded-lg p-4 mb-4">{{ error }}</div>
-{% endif %}
-
-<form method="post" action="/configura/{{ session_id }}" class="space-y-4">
+<form method="post" action="/configura/{{ session_id }}" class="space-y-5" onsubmit="return startDraw(this)">
 
   <!-- GIOCATORI -->
   <div class="card">
-    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x26BD; Giocatori</h2>
+    <h2 class="text-[#fde68a] text-lg font-semibold mb-4">&#x26BD; Giocatori</h2>
 
     <!-- Participant column selector -->
     <div class="mb-4">
@@ -104,7 +108,7 @@
 
   <!-- SELEZIONE PARTITE -->
   <div class="card">
-    <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F3AF; Quali partite sorteggiare?</h2>
+    <h2 class="text-[#fde68a] text-lg font-semibold mb-4">&#x1F3AF; Quali partite sorteggiare?</h2>
     <div class="flex flex-wrap gap-4 mb-4">
       <label class="flex items-center gap-2 cursor-pointer">
         <input type="radio" name="selection_mode" value="none" checked class="accent-[#f59e0b]"
@@ -163,7 +167,7 @@
   {% if matches %}
   <div class="card">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-[#f59e0b] font-semibold">&#x1F4CB; Partite disponibili</h2>
+      <h2 class="text-[#fde68a] text-lg font-semibold">&#x1F4CB; Partite disponibili</h2>
       <span id="match-count" class="text-[#78716c] text-xs"></span>
     </div>
     <p class="text-[#78716c] text-xs mb-3">
@@ -176,9 +180,9 @@
               class="text-xs text-[#f59e0b] hover:text-[#fde68a] flex-shrink-0">&#x21BB; Aggiorna quote</button>
     </div>
     <p id="form-status" class="text-xs mb-3 text-[#78716c]"></p>
-    <div id="match-list" class="space-y-1">
+    <div id="match-list" class="space-y-2">
       {% for m in matches %}
-      <div class="match-item flex flex-wrap items-center gap-2 bg-[#0f0d08] rounded-lg px-3 py-2"
+      <div class="match-item flex flex-wrap items-center gap-2 bg-[#12100a] border border-[#2d2410] rounded-lg px-3 py-3"
            data-idx="{{ m.idx }}">
         <input type="checkbox" class="match-cb accent-[#f59e0b] w-4 h-4 flex-shrink-0"
                checked onchange="updateMatchSelection()">
@@ -203,9 +207,9 @@
   {% endif %}
 
   <!-- QUOTE + PARLAY -->
-  <div class="grid md:grid-cols-2 gap-4">
+  <div class="grid md:grid-cols-2 gap-5">
     <div class="card">
-      <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F4CA; Quote</h2>
+      <h2 class="text-[#fde68a] text-lg font-semibold mb-4">&#x1F4CA; Quote</h2>
       <label class="text-[#92400e] text-xs uppercase block mb-1">TheOddsAPI Key</label>
       <input type="text" name="theodds_key" id="theodds-key" class="input-gold mb-3"
              placeholder="8be3399300ddf79d..." autocomplete="off">
@@ -216,7 +220,7 @@
       </label>
     </div>
     <div class="card">
-      <h2 class="text-[#f59e0b] font-semibold mb-3">&#x1F3B0; Parlay</h2>
+      <h2 class="text-[#fde68a] text-lg font-semibold mb-4">&#x1F3B0; Parlay</h2>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-[#92400e] text-xs uppercase block mb-1">Moltiplicatore minimo</label>
@@ -251,7 +255,7 @@
     </div>
   </details>
 
-  <button type="submit" class="btn-gold w-full py-3 text-base">&#x25B6; Avvia Sorteggio</button>
+  <button type="submit" id="draw-submit" class="btn-gold w-full py-3 text-base">&#x25B6; Avvia Sorteggio</button>
 </form>
 {% endblock %}
 
@@ -319,6 +323,15 @@
       e.target.blur();
     }
   });
+
+  const DRAW_STEPS = ["Leggo l'Excel", "Scarico le quote", "Recupero la forma delle squadre", "Sorteggio e salvo"];
+  function startDraw(form) {
+    updateMatchSelection();  // popola match_selection prima dell'invio
+    const btn = document.getElementById('draw-submit');
+    if (btn) btn.disabled = true;
+    Progress.open("Sorteggio in corso…", DRAW_STEPS, {indeterminate: true});
+    return true;  // invio nativo del form
+  }
 
   // Init on load
   document.addEventListener('DOMContentLoaded', updateMatchSelection);
