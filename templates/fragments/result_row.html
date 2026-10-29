@@ -1,40 +1,43 @@
-<div class="card" id="sched-row-{{ s.id }}">
+{% from "fragments/macros.html" import outcome_badge, profit_text %}
+<div class="card !p-5" id="sched-row-{{ s.id }}">
   <!-- Header row -->
   <div class="flex flex-wrap items-start gap-3 justify-between">
     <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2 mb-1">
+      <div class="flex flex-wrap items-center gap-2 mb-2">
         <span class="text-[#f59e0b] font-bold text-sm">#{{ s.id }}</span>
         {% if s.participant_name %}
-        <span class="text-white font-medium text-sm">{{ s.participant_name }}</span>
+        <span class="text-[#fde68a] font-medium text-sm">{{ s.participant_name }}</span>
         {% endif %}
-        <span class="text-[#78716c] text-xs">{{ (s.created_at or '')[:16] }}</span>
-        <span class="text-[#4b5563] text-xs">· {{ s.excel_filename }}</span>
+        <span class="muted text-xs">{{ (s.created_at or '')[:16] }}</span>
+        <span class="muted text-xs">· {{ s.excel_filename }}</span>
       </div>
       <!-- Picks summary -->
-      <div class="flex flex-wrap gap-1 mb-2">
+      <div class="flex flex-wrap gap-1.5">
         {% for p in picks %}
         <button class="badge-pron text-left hover:bg-[#3d3010] transition-colors"
                 onclick="document.getElementById('detail-{{ s.id }}').classList.toggle('hidden')">
           {% if p.pronostico %}
             {{ p.match_name.split(' - ')[0][:8] }} <span class="text-white font-bold">{{ p.pronostico }}</span>
           {% else %}
-            {{ p.match_name.split(' - ')[0][:12] }} <span class="text-[#78716c]">—</span>
+            {{ p.match_name.split(' - ')[0][:12] }} <span class="muted">—</span>
           {% endif %}
         </button>
         {% endfor %}
       </div>
     </div>
     <div class="flex items-center gap-3 flex-shrink-0">
-      <span class="badge-{{ s.outcome }}">{{ s.outcome }}</span>
+      {% if s.outcome %}
+      {{ outcome_badge(s.outcome) }}
       {% if s.stake is not none %}
-      <span class="text-[#78716c] text-xs">{{ s.stake }}€ ×{{ s.actual_multiplier }}</span>
+      <span class="muted text-xs tabular-nums">{{ s.stake }}€ ×{{ s.actual_multiplier }}</span>
       {% endif %}
-      <span class="font-bold {% if s.profit and s.profit > 0 %}text-emerald-400{% elif s.profit and s.profit < 0 %}text-red-400{% else %}text-[#78716c]{% endif %}">
-        {% if s.profit is not none %}{{ "%+.2f"|format(s.profit) }}€{% endif %}
-      </span>
-      <button class="btn-ghost text-xs"
+      {{ profit_text(s.profit) }}
+      {% else %}
+      {{ outcome_badge(none) }}
+      {% endif %}
+      <button class="btn-ghost text-xs !py-1.5"
               onclick="document.getElementById('result-form-{{ s.id }}').classList.toggle('hidden')">
-        Modifica
+        {% if s.outcome %}Modifica{% else %}Inserisci esito{% endif %}
       </button>
     </div>
   </div>
@@ -45,17 +48,17 @@
     <div class="flex items-center justify-between text-sm py-1">
       <div>
         {% set teams = p.match_name.split(' - ') %}
-        <span class="text-white">{{ teams[0] }}</span>
-        <span class="text-[#4b5563] mx-1">vs</span>
-        <span class="text-white">{{ teams[1] if teams|length > 1 else '' }}</span>
+        <span class="text-[#e5e7eb]">{{ teams[0] }}</span>
+        <span class="muted mx-1">vs</span>
+        <span class="text-[#e5e7eb]">{{ teams[1] if teams|length > 1 else '' }}</span>
         {% if p.match_date %}
-        <span class="text-[#78716c] text-xs ml-2">{{ p.match_date }}</span>
+        <span class="muted text-xs ml-2">{{ p.match_date }}</span>
         {% endif %}
       </div>
       {% if p.pronostico %}
       <span class="badge-pron ml-2">{{ p.pronostico }}</span>
       {% else %}
-      <span class="text-[#78716c] text-xs">non estratto</span>
+      <span class="muted text-xs">non estratto</span>
       {% endif %}
     </div>
     {% endfor %}
@@ -68,21 +71,21 @@
           hx-swap="outerHTML"
           class="flex flex-wrap gap-3 items-end">
       <div>
-        <label class="text-[#92400e] text-xs uppercase block mb-1">Esito</label>
+        <label class="kpi-label block mb-1">Esito</label>
         <select name="outcome" class="input-gold w-32">
-          <option value="won" {% if s.outcome == 'won' %}selected{% endif %}>✓ Vinto</option>
-          <option value="lost" {% if s.outcome == 'lost' %}selected{% endif %}>✗ Perso</option>
-          <option value="void" {% if s.outcome == 'void' %}selected{% endif %}>— Void</option>
+          <option value="won" {% if s.outcome == 'won' %}selected{% endif %}>✓ Vinta</option>
+          <option value="lost" {% if s.outcome == 'lost' %}selected{% endif %}>✗ Persa</option>
+          <option value="void" {% if s.outcome == 'void' %}selected{% endif %}>— Annullata</option>
         </select>
       </div>
       <div>
-        <label class="text-[#92400e] text-xs uppercase block mb-1">Moltiplicatore</label>
+        <label class="kpi-label block mb-1">Moltiplicatore</label>
         <input type="number" name="actual_multiplier" step="0.01"
                value="{{ s.actual_multiplier or 1 }}"
                class="input-gold w-28">
       </div>
       <div>
-        <label class="text-[#92400e] text-xs uppercase block mb-1">Puntata (€)</label>
+        <label class="kpi-label block mb-1">Puntata (€)</label>
         <input type="number" name="stake" step="0.50"
                value="{{ s.stake or 5 }}"
                class="input-gold w-24">

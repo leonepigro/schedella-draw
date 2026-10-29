@@ -1,0 +1,15 @@
+{# Etichette italiane per i codici esito del DB (won/lost/void). #}
+{% macro outcome_badge(outcome) -%}
+{%- if outcome == 'won' -%}<span class="badge-won">vinta</span>
+{%- elif outcome == 'lost' -%}<span class="badge-lost">persa</span>
+{%- elif outcome == 'void' -%}<span class="badge-void">annullata</span>
+{%- else -%}<span class="badge-open">in corso</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro profit_text(profit, signed=True) -%}
+{%- if profit is not none -%}
+<span class="font-bold tabular-nums {% if profit > 0 %}text-emerald-400{% elif profit < 0 %}text-red-400{% else %}muted{% endif %}">{{ ("%+.2f" if signed else "%.2f")|format(profit) }} €</span>
+{%- else -%}<span class="muted">—</span>
+{%- endif -%}
+{%- endmacro %}

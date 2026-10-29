@@ -2,47 +2,31 @@
 {% set active = "analisi" %}
 {% block title %}Analisi{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-[#f59e0b] mb-6">Analisi ROI</h1>
+<h1 class="page-title">Analisi ROI</h1>
 
 <!-- Summary KPIs -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-  <div class="card">
-    <div class="text-[#92400e] text-xs mb-1">SCHEDELLE TOTALI</div>
-    <div class="text-2xl font-bold">{{ stats.total }}</div>
-  </div>
-  <div class="card">
-    <div class="text-[#92400e] text-xs mb-1">WIN RATE</div>
-    <div class="text-2xl font-bold text-emerald-400">{{ stats.win_rate }}%</div>
-  </div>
-  <div class="card">
-    <div class="text-[#92400e] text-xs mb-1">ROI</div>
-    <div class="text-2xl font-bold {% if stats.roi >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
-      {{ stats.roi }}%
-    </div>
-  </div>
-  <div class="card">
-    <div class="text-[#92400e] text-xs mb-1">PROFIT NETTO</div>
-    <div class="text-2xl font-bold {% if stats.total_profit >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
-      {{ "%+.2f"|format(stats.total_profit) }}€
-    </div>
-  </div>
+  <div class="kpi"><div class="kpi-label">Schedelle totali</div><div class="kpi-value">{{ stats.total }}</div></div>
+  <div class="kpi"><div class="kpi-label">Win rate</div><div class="kpi-value">{{ stats.win_rate }}%</div></div>
+  <div class="kpi"><div class="kpi-label">ROI</div><div class="kpi-value {% if stats.roi >= 0 %}!text-emerald-400{% else %}!text-red-400{% endif %}">{{ stats.roi }}%</div></div>
+  <div class="kpi"><div class="kpi-label">Profit netto</div><div class="kpi-value {% if stats.total_profit >= 0 %}!text-emerald-400{% else %}!text-red-400{% endif %}">{{ "%+.2f"|format(stats.total_profit) }} €</div></div>
 </div>
 
 {% if stats.total == 0 %}
-<div class="card text-center py-16 text-[#78716c]">
+<div class="card text-center py-16 muted">
   Nessun dato ancora. <a href="/nuova" class="text-[#f59e0b] hover:underline">Crea una schedella!</a>
 </div>
 {% else %}
 
 <!-- ROI over time -->
-<div class="card mb-6">
-  <h2 class="text-[#f59e0b] font-semibold mb-4">Profit cumulativo nel tempo</h2>
+<div class="card !p-5 mb-6">
+  <h2 class="text-[#fde68a] font-semibold mb-4">Profit cumulativo nel tempo</h2>
   <canvas id="roi-chart" height="120"></canvas>
 </div>
 
 <!-- Win rate by pronostico -->
-<div class="card mb-6">
-  <h2 class="text-[#f59e0b] font-semibold mb-4">Win rate per tipo di pronostico</h2>
+<div class="card !p-5 mb-6">
+  <h2 class="text-[#fde68a] font-semibold mb-4">Win rate per tipo di pronostico</h2>
   <canvas id="winrate-chart" height="120"></canvas>
 </div>
 

@@ -213,3 +213,20 @@ def test_configura_empty_match_selection_is_error(client):
     r2 = client.post(r.headers["location"], data={"players": 1, "per_player": 3, "selection_mode": "none", "match_selection": "[]"})
     assert r2.status_code == 400
     assert "Nessuna partita selezionata." in r2.text
+
+
+def test_dashboard_and_storia_show_italian_outcome_labels(client):
+    session_id = _create_session(client, players=2, per_player=2)
+    import os
+    from app.db import get_schedelle_for_session
+    db_path = os.environ.get("DB_PATH", "data/schedella.db")
+    schedelle = get_schedelle_for_session(db_path, session_id)
+    assert "in corso" in client.get("/").text
+    client.post(f"/storia/{schedelle[0]}/result",
+                data={"outcome": "won", "actual_multiplier": "12.5", "stake": "5"})
+    client.post(f"/storia/{schedelle[1]}/result",
+                data={"outcome": "lost", "actual_multiplier": "1", "stake": "5"})
+    for path in ("/", "/storia"):
+        text = client.get(path).text
+        assert "vinta" in text and "persa" in text
+        assert ">won<" not in text and ">lost<" not in text
