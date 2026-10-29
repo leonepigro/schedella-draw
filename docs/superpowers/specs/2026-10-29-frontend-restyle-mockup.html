@@ -1,0 +1,124 @@
+<h2>Che direzione ti piace per la Schedella?</h2>
+<p class="subtitle">Stessi contenuti (menu + "Ultime schedelle" della dashboard + popup di avanzamento), due stili. Clicca quello che preferisci, poi dimmi nel terminale cosa cambieresti.</p>
+
+<style>
+  .m { font-family: system-ui, -apple-system, Segoe UI, sans-serif; border-radius: 12px; overflow: hidden; font-size: 13px; }
+  .m table { width: 100%; border-collapse: collapse; }
+  .m td, .m th { padding: 10px 12px; text-align: left; }
+  .m .r { text-align: right; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+
+  /* A: oro scuro, rifinito */
+  .a { background: #12100a; color: #e5e7eb; }
+  .a nav { display: flex; align-items: center; gap: 4px; padding: 0 20px; height: 56px; background: #1a160d; border-bottom: 1px solid #2d2410; }
+  .a nav .logo { color: #f59e0b; font-weight: 800; font-size: 16px; margin-right: 24px; }
+  .a nav a { color: #a8a29e; padding: 7px 14px; border-radius: 8px; text-decoration: none; font-weight: 500; }
+  .a nav a.on { background: #2d2410; color: #fde68a; }
+  .a nav .cta { margin-left: auto; background: #f59e0b; color: #12100a; font-weight: 700; }
+  .a .body { padding: 20px; }
+  .a .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .a .kpi { background: #1a160d; border: 1px solid #2d2410; border-radius: 12px; padding: 12px 14px; }
+  .a .kpi small { color: #a8a29e; font-size: 10px; letter-spacing: .08em; }
+  .a .kpi b { display: block; font-size: 20px; margin-top: 4px; }
+  .a .tbl { background: #1a160d; border: 1px solid #2d2410; border-radius: 12px; overflow: hidden; }
+  .a th { color: #a8a29e; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; background: #15120b; }
+  .a tr + tr td { border-top: 1px solid #241d0e; }
+  .a .won { background: #064e3b; color: #6ee7b7; } .a .lost { background: #7f1d1d; color: #fca5a5; } .a .open { background: #2d2410; color: #fbbf24; }
+
+  /* B: chiaro/neutro, pulito */
+  .b { background: #f6f5f2; color: #1c1917; }
+  .b nav { display: flex; align-items: center; gap: 22px; padding: 0 22px; height: 56px; background: #fff; border-bottom: 1px solid #e7e5e4; }
+  .b nav .logo { font-weight: 800; font-size: 16px; margin-right: 10px; }
+  .b nav .logo span { color: #d97706; }
+  .b nav a { color: #78716c; text-decoration: none; font-weight: 500; padding: 18px 0; border-bottom: 2px solid transparent; }
+  .b nav a.on { color: #1c1917; border-bottom-color: #d97706; }
+  .b nav .cta { margin-left: auto; background: #1c1917; color: #fff; padding: 7px 14px; border-radius: 8px; border: 0; }
+  .b .body { padding: 20px; }
+  .b .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .b .kpi { background: #fff; border: 1px solid #e7e5e4; border-radius: 12px; padding: 12px 14px; }
+  .b .kpi small { color: #78716c; font-size: 10px; letter-spacing: .08em; }
+  .b .kpi b { display: block; font-size: 20px; margin-top: 4px; }
+  .b .tbl { background: #fff; border: 1px solid #e7e5e4; border-radius: 12px; overflow: hidden; }
+  .b th { color: #78716c; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; background: #fafaf9; }
+  .b tr + tr td { border-top: 1px solid #f0efed; }
+  .b .won { background: #d1fae5; color: #065f46; } .b .lost { background: #fee2e2; color: #991b1b; } .b .open { background: #fef3c7; color: #92400e; }
+
+  .pos-a { color: #34d399; } .neg-a { color: #f87171; }
+  .pos-b { color: #059669; } .neg-b { color: #dc2626; }
+
+  /* popup */
+  .pop { margin: 18px auto 0; width: 300px; border-radius: 14px; padding: 18px; }
+  .a .pop { background: #1a160d; border: 1px solid #3a2e14; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+  .b .pop { background: #fff; border: 1px solid #e7e5e4; box-shadow: 0 10px 40px rgba(0,0,0,.12); }
+  .pop h4 { margin: 0 0 12px; font-size: 14px; }
+  .step { display: flex; gap: 10px; align-items: center; padding: 5px 0; }
+  .dot { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; flex: none; }
+  .a .done .dot { background: #f59e0b; color: #12100a; } .a .now .dot { border: 2px solid #f59e0b; } .a .todo { color: #57534e; } .a .todo .dot { border: 2px solid #3a2e14; }
+  .b .done .dot { background: #d97706; color: #fff; } .b .now .dot { border: 2px solid #d97706; } .b .todo { color: #a8a29e; } .b .todo .dot { border: 2px solid #e7e5e4; }
+  .bar { height: 4px; border-radius: 4px; margin-top: 12px; overflow: hidden; }
+  .a .bar { background: #2d2410; } .b .bar { background: #f0efed; }
+  .bar i { display: block; height: 100%; width: 55%; }
+  .a .bar i { background: #f59e0b; } .b .bar i { background: #d97706; }
+</style>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="m a">
+        <nav><span class="logo">⚽ Schedella</span><a class="on">Dashboard</a><a>Sorteggio</a><a>Storia</a><a>Analisi</a><a class="cta">+ Nuova</a></nav>
+        <div class="body">
+          <div class="kpis">
+            <div class="kpi"><small>SCHEDELLE</small><b>24</b></div>
+            <div class="kpi"><small>WIN RATE</small><b class="pos-a">38%</b></div>
+            <div class="kpi"><small>ROI</small><b class="pos-a">+12%</b></div>
+            <div class="kpi"><small>PROFIT</small><b class="pos-a">+46,20 €</b></div>
+          </div>
+          <div class="tbl"><table>
+            <tr><th>Data</th><th>Schedella</th><th>Esito</th><th class="r">Profit</th></tr>
+            <tr><td>26 ott</td><td>Schedella2627 · Giornata 9</td><td><span class="pill open">in corso</span></td><td class="r">—</td></tr>
+            <tr><td>19 ott</td><td>Schedella2627 · Giornata 8</td><td><span class="pill won">vinta</span></td><td class="r pos-a">+18,40 €</td></tr>
+            <tr><td>12 ott</td><td>Schedella2627 · Giornata 7</td><td><span class="pill lost">persa</span></td><td class="r neg-a">−5,00 €</td></tr>
+          </table></div>
+          <div class="pop">
+            <h4>Preparo la schedella…</h4>
+            <div class="step done"><span class="dot">✓</span>File caricato</div>
+            <div class="step now"><span class="dot"></span>Leggo le partite dall'Excel</div>
+            <div class="step todo"><span class="dot"></span>Apro la configurazione</div>
+            <div class="bar"><i></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A · Oro scuro, rifinito</h3><p>Tieni l'identità attuale (nero/oro) ma con spazi veri: voci menu distanziate con pillola sulla pagina attiva, "+ Nuova" come bottone a destra, tabella con righe ariose ed esiti a pillola colorata.</p></div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="m b">
+        <nav><span class="logo">⚽ Schedella<span>.</span></span><a class="on">Dashboard</a><a>Sorteggio</a><a>Storia</a><a>Analisi</a><a class="cta">+ Nuova</a></nav>
+        <div class="body">
+          <div class="kpis">
+            <div class="kpi"><small>SCHEDELLE</small><b>24</b></div>
+            <div class="kpi"><small>WIN RATE</small><b class="pos-b">38%</b></div>
+            <div class="kpi"><small>ROI</small><b class="pos-b">+12%</b></div>
+            <div class="kpi"><small>PROFIT</small><b class="pos-b">+46,20 €</b></div>
+          </div>
+          <div class="tbl"><table>
+            <tr><th>Data</th><th>Schedella</th><th>Esito</th><th class="r">Profit</th></tr>
+            <tr><td>26 ott</td><td>Schedella2627 · Giornata 9</td><td><span class="pill open">in corso</span></td><td class="r">—</td></tr>
+            <tr><td>19 ott</td><td>Schedella2627 · Giornata 8</td><td><span class="pill won">vinta</span></td><td class="r pos-b">+18,40 €</td></tr>
+            <tr><td>12 ott</td><td>Schedella2627 · Giornata 7</td><td><span class="pill lost">persa</span></td><td class="r neg-b">−5,00 €</td></tr>
+          </table></div>
+          <div class="pop">
+            <h4>Preparo la schedella…</h4>
+            <div class="step done"><span class="dot">✓</span>File caricato</div>
+            <div class="step now"><span class="dot"></span>Leggo le partite dall'Excel</div>
+            <div class="step todo"><span class="dot"></span>Apro la configurazione</div>
+            <div class="bar"><i></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B · Chiaro, pulito</h3><p>Sfondo chiaro, menu a sottolineatura stile app moderna, oro solo come accento. Più leggibile di giorno, meno "da scommesse".</p></div>
+  </div>
+</div>
