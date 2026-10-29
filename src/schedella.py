@@ -226,7 +226,11 @@ def fetch_theodds_event_odds(event_id, sport_key, api_key, debug=False):
 
 
 def read_schedule(path, cos_column=None):
-    df = pd.read_excel(path, engine='openpyxl', header=1)
+    return schedule_from_raw(pd.read_excel(path, engine='openpyxl', header=1), cos_column)
+
+
+def schedule_from_raw(df, cos_column=None):
+    df = df.copy()
     df.columns = [str(c).strip() for c in df.columns]
     cols = df.columns.tolist()
 

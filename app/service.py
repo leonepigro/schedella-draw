@@ -6,16 +6,16 @@ Key functions:
   roll_pick(match_data, seed=None) -> dict
 """
 
+import hashlib
 import io
 import math
-import tempfile
 import os
 import numpy as np
 import pandas as pd
 
 from src.schedella import (
     PRONOSTICI,
-    read_schedule,
+    schedule_from_raw,
     probs_from_row,
     raw_odds_from_row,
     sample_pronostic,
@@ -34,6 +34,22 @@ from src.schedella import (
 )
 from src.form_data import match_form, FootballDataError
 from app import db as database
+
+
+RAW_EXCEL_CACHE_MAX = 8
+_RAW_EXCEL_CACHE = {}
+
+
+def read_raw_excel(excel_bytes: bytes) -> pd.DataFrame:
+    """Raw schedule sheet, read once per distinct file and cached; always returns a copy."""
+    key = hashlib.sha1(excel_bytes).hexdigest()
+    if key not in _RAW_EXCEL_CACHE:
+        df = pd.read_excel(io.BytesIO(excel_bytes), engine='openpyxl', header=1)
+        df.columns = [str(c).strip() for c in df.columns]
+        if len(_RAW_EXCEL_CACHE) >= RAW_EXCEL_CACHE_MAX:
+            _RAW_EXCEL_CACHE.pop(next(iter(_RAW_EXCEL_CACHE)))
+        _RAW_EXCEL_CACHE[key] = df
+    return _RAW_EXCEL_CACHE[key].copy()
 
 
 def get_odds_preview(match_names: list, api_key: str = None, db_path: str = None, force: bool = False) -> dict:
@@ -74,9 +90,8 @@ def get_odds_preview(match_names: list, api_key: str = None, db_path: str = None
 
 def get_excel_preview(excel_bytes: bytes, filename: str = "upload.xlsx", max_rows: int = 10) -> dict:
     try:
-        df_prev = pd.read_excel(io.BytesIO(excel_bytes), engine='openpyxl', header=1, nrows=max_rows)
-        df_prev.columns = [str(c).strip() for c in df_prev.columns]
-        df_prev = df_prev.dropna(how='all')
+        raw = read_raw_excel(excel_bytes)
+        df_prev = raw.head(max_rows).dropna(how='all')
         all_cols = list(df_prev.columns)
         dropdown_cols = [c for c in all_cols if c and not c.startswith('Unnamed')]
         rows = [
@@ -88,24 +103,14 @@ def get_excel_preview(excel_bytes: bytes, filename: str = "upload.xlsx", max_row
 
     matches = []
     try:
-        suffix = os.path.splitext(filename)[-1] or ".xlsx"
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(excel_bytes)
-            tmp_path = tmp.name
-        try:
-            df_m = read_schedule(tmp_path)
-            for i, (_, row) in enumerate(df_m.iterrows()):
-                name_str = str(row.get("match", "")).strip()
-                if not name_str or name_str == "nan":
-                    continue
-                date_val = row.get("date", "")
-                date_str = "" if str(date_val) in ("nan", "NaT", "None", "<NA>") else str(date_val)[:10]
-                matches.append({"idx": i, "name": name_str, "date": date_str})
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
+        df_m = schedule_from_raw(raw)
+        for i, (_, row) in enumerate(df_m.iterrows()):
+            name_str = str(row.get("match", "")).strip()
+            if not name_str or name_str == "nan":
+                continue
+            date_val = row.get("date", "")
+            date_str = "" if str(date_val) in ("nan", "NaT", "None", "<NA>") else str(date_val)[:10]
+            matches.append({"idx": i, "name": name_str, "date": date_str})
     except Exception:
         pass
 
@@ -289,20 +294,8 @@ def prepare_session(excel_bytes: bytes, filename: str, params: dict) -> dict:
             "filename": str
         }
     """
-    # Write bytes to a NamedTemporaryFile so read_schedule (which takes a path) can read it
-    suffix = os.path.splitext(filename)[-1] or ".xlsx"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(excel_bytes)
-        tmp_path = tmp.name
-
-    try:
-        cos_column = params.get("cos_column")
-        df = read_schedule(tmp_path, cos_column=cos_column)
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+    cos_column = params.get("cos_column")
+    df = schedule_from_raw(read_raw_excel(excel_bytes), cos_column=cos_column)
 
     # Apply curated match selection (rename + filter)
     match_selection = params.get("match_selection")

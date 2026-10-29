@@ -3,7 +3,8 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import patch
-from app.service import prepare_session, roll_pick
+from app.service import prepare_session, roll_pick, get_excel_preview
+from tests.test_routes import _excel_bytes
 
 
 def _make_excel_bytes():
@@ -62,3 +63,29 @@ def test_roll_pick_deterministic_with_seed():
     r1 = roll_pick(match_data, seed=99)
     r2 = roll_pick(match_data, seed=99)
     assert r1["pronostico"] == r2["pronostico"]
+
+
+def test_excel_read_once_for_preview_and_session(monkeypatch):
+    import app.service as svc
+    svc._RAW_EXCEL_CACHE.clear()
+    calls = []
+    real = svc.pd.read_excel
+    monkeypatch.setattr(svc.pd, "read_excel", lambda *a, **k: calls.append(1) or real(*a, **k))
+    data = _excel_bytes()
+    svc.get_excel_preview(data, "t.xlsx")
+    svc.prepare_session(data, "t.xlsx", {"players": 1, "per_player": 3})
+    assert len(calls) == 1
+
+
+def test_raw_excel_cache_not_mutated():
+    import app.service as svc
+    data = _excel_bytes()
+    first = svc.read_raw_excel(data)
+    first["match"] = "x"
+    assert "match" not in svc.read_raw_excel(data).columns
+
+
+def test_excel_preview_unchanged_shape():
+    p = get_excel_preview(_excel_bytes(), "t.xlsx")
+    assert "Partita" in p["dropdown_columns"]
+    assert [m["name"] for m in p["matches"]][:2] == ["Milan - Inter", "Juve - Napoli"]
