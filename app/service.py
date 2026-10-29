@@ -10,6 +10,7 @@ import hashlib
 import io
 import math
 import os
+import threading
 import numpy as np
 import pandas as pd
 
@@ -38,18 +39,22 @@ from app import db as database
 
 RAW_EXCEL_CACHE_MAX = 8
 _RAW_EXCEL_CACHE = {}
+_RAW_EXCEL_LOCK = threading.Lock()
 
 
 def read_raw_excel(excel_bytes: bytes) -> pd.DataFrame:
     """Raw schedule sheet, read once per distinct file and cached; always returns a copy."""
     key = hashlib.sha1(excel_bytes).hexdigest()
-    if key not in _RAW_EXCEL_CACHE:
+    with _RAW_EXCEL_LOCK:
+        df = _RAW_EXCEL_CACHE.get(key)
+    if df is None:
         df = pd.read_excel(io.BytesIO(excel_bytes), engine='openpyxl', header=1)
         df.columns = [str(c).strip() for c in df.columns]
-        if len(_RAW_EXCEL_CACHE) >= RAW_EXCEL_CACHE_MAX:
-            _RAW_EXCEL_CACHE.pop(next(iter(_RAW_EXCEL_CACHE)))
-        _RAW_EXCEL_CACHE[key] = df
-    return _RAW_EXCEL_CACHE[key].copy()
+        with _RAW_EXCEL_LOCK:
+            _RAW_EXCEL_CACHE[key] = df
+            while len(_RAW_EXCEL_CACHE) > RAW_EXCEL_CACHE_MAX:
+                _RAW_EXCEL_CACHE.pop(next(iter(_RAW_EXCEL_CACHE)), None)
+    return df.copy()
 
 
 def get_odds_preview(match_names: list, api_key: str = None, db_path: str = None, force: bool = False) -> dict:

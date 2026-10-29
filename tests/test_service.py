@@ -89,3 +89,24 @@ def test_excel_preview_unchanged_shape():
     p = get_excel_preview(_excel_bytes(), "t.xlsx")
     assert "Partita" in p["dropdown_columns"]
     assert [m["name"] for m in p["matches"]][:2] == ["Milan - Inter", "Juve - Napoli"]
+
+
+def test_raw_excel_cache_evicts_oldest():
+    import app.service as svc
+    svc._RAW_EXCEL_CACHE.clear()
+    first = _excel_bytes()
+    svc.read_raw_excel(first)
+    for i in range(svc.RAW_EXCEL_CACHE_MAX):
+        svc.read_raw_excel(_excel_bytes_variant(i))
+    assert len(svc._RAW_EXCEL_CACHE) == svc.RAW_EXCEL_CACHE_MAX
+    import hashlib
+    assert hashlib.sha1(first).hexdigest() not in svc._RAW_EXCEL_CACHE
+    assert not svc.read_raw_excel(_excel_bytes_variant(0)).empty
+
+
+def _excel_bytes_variant(i):
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as w:
+        pd.DataFrame([[""] * 2]).to_excel(w, index=False, header=False)
+        pd.DataFrame({"Partita": [f"A{i}"], "Away": [f"B{i}"]}).to_excel(w, index=False, startrow=1)
+    return buf.getvalue()
